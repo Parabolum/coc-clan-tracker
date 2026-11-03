@@ -29,11 +29,10 @@
     </section>
 
     <section id="admin-app" hidden>
-      <div class="page-heading"><div><p class="overline">CLAN TRACKER</p><h1>Administration</h1><p class="muted">Punkte buchen, Clan-Spiele erfassen und Daten synchronisieren.</p></div><button id="logout" class="quiet-button" type="button">Abmelden</button></div>
+      <div class="page-heading"><div><p class="overline">CLAN TRACKER</p><h1>Administration</h1><p class="muted">Punkte buchen, Mitglieder verwalten und Daten synchronisieren.</p></div><button id="logout" class="quiet-button" type="button">Abmelden</button></div>
 
       <nav class="admin-tabs" aria-label="Admin-Bereiche">
         <button class="admin-tab active" type="button" data-panel="points-panel">Punkte buchen</button>
-        <button class="admin-tab" type="button" data-panel="games-panel">Clan-Spiele</button>
         <button class="admin-tab" type="button" data-panel="members-panel">Mitglieder</button>
         <button class="admin-tab" type="button" data-panel="sync-panel">Synchronisierung</button>
       </nav>
@@ -47,19 +46,6 @@
             <label>Punkte <span class="label-note">(Minus zum Abziehen)</span><input name="points" type="number" min="-1000" max="1000" step="1" placeholder="z. B. 5 oder -3" required></label>
             <label class="wide">Beschreibung<input name="description" maxlength="200" placeholder="z. B. Ausgleich für verpassten Angriff" required></label>
             <div class="wide form-actions"><button class="primary-button" type="submit">Buchung speichern</button><p class="message" id="adjustment-message" role="status"></p></div>
-          </form>
-        </article>
-      </section>
-
-      <section class="admin-panel" id="games-panel" hidden>
-        <article class="admin-card">
-          <div class="card-heading"><div><p class="overline">MANUELLE ERFASSUNG</p><h2>Clan-Spiele-Punktestand</h2><p class="muted">Der Punktwert wird anhand der hinterlegten Schwellen berechnet.</p></div></div>
-          <div class="rule-strip"><span><b>4.000+</b> Punkte <strong>+3</strong></span><span><b>1.000–3.999</b> Punkte <strong>0</strong></span><span><b>unter 1.000</b> Punkte <strong>−3</strong></span></div>
-          <form id="games-form" class="form-grid">
-            <label>Mitglied<select name="player_tag" class="member-select" required><option value="">Mitglieder werden geladen …</option></select></label>
-            <label>Spiele-Saison<input name="season" type="month" required></label>
-            <label class="wide">Erreichte Punkte<input name="score" type="number" min="0" max="100000" step="1" placeholder="z. B. 4000" required></label>
-            <div class="wide form-actions"><button class="primary-button" type="submit">Punktestand erfassen</button><p class="message" id="games-message" role="status"></p></div>
           </form>
         </article>
       </section>
@@ -105,6 +91,6 @@
       <p class="admin-footer">Admin-Aktionen werden dauerhaft im Punkteverlauf gespeichert.</p>
     </section>
   </main>
-  <script src="admin.js?v=7"></script>
+  <script src="admin.js?v=8"></script>
 </body>
 </html>

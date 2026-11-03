@@ -16,7 +16,6 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 from . import coc_api, database, sync
-from .scoring import points_for_clan_games
 
 
 @asynccontextmanager
@@ -57,12 +56,6 @@ class Adjustment(BaseModel):
     category: str = Field(min_length=1, max_length=40)
     description: str = Field(min_length=1, max_length=200)
     points: int = Field(ge=-1000, le=1000)
-
-
-class ClanGamesEntry(BaseModel):
-    player_tag: str = Field(min_length=3, max_length=20)
-    season: str = Field(pattern=r"^\d{4}-\d{2}$")
-    score: int = Field(ge=0, le=100000)
 
 
 class MemberCreate(BaseModel):
@@ -228,20 +221,6 @@ def add_adjustment(item: Adjustment, _admin: str = Depends(require_admin)):
                 raise HTTPException(409, "Diese Buchung existiert bereits")
             raise
     return {"saved": True}
-
-
-@app.post("/api/admin/clan-games")
-def add_clan_games(item: ClanGamesEntry, _admin: str = Depends(require_admin)):
-    with database.connect() as db:
-        member = db.execute("SELECT is_current_clan FROM members WHERE player_tag=?", (item.player_tag,)).fetchone()
-        if not member:
-            raise HTTPException(404, "Spieler nicht gefunden")
-        if not member["is_current_clan"]:
-            raise HTTPException(409, "Punkte können nur an aktuelle Clanmitglieder vergeben werden.")
-    points = points_for_clan_games(item.score)
-    if not database.replace_points(item.player_tag, f"clangames:{item.season}:{item.player_tag}", "Clan-Spiele", f"Clan-Spiele-Punktestand {item.score}", points):
-        raise HTTPException(409, "Punkte können nur an aktuelle Clanmitglieder vergeben werden.")
-    return {"saved": True, "points": points}
 
 
 @app.post("/api/admin/sync")

@@ -30,6 +30,29 @@ def parse_api_time(value):
                 return None
 
 
+def month_key(value):
+    return value.strftime("%Y-%m")
+
+
+def previous_month(value):
+    year, month = value.year, value.month
+    if month == 1:
+        return f"{year - 1:04d}-12"
+    return f"{year:04d}-{month - 1:02d}"
+
+
+def achievement_clan_games_score(player):
+    for achievement in player.get("achievements", []):
+        if (achievement.get("name") or "").strip().casefold() == "games champion":
+            return max(0, int(achievement.get("value", 0) or 0))
+    raise ValueError("Games-Champion-Erfolg fehlt im Spielerprofil")
+
+
+async def player_clan_games_score(tag):
+    profile = await coc_api.get_player(tag)
+    return achievement_clan_games_score(profile)
+
+
 def book_war(event_key, members, category="Krieg", attacks_per_member=2):
     entries = []
     for member in members:
@@ -208,11 +231,110 @@ async def sync_raids():
     return len(season.get("members", []))
 
 
+async def sync_clan_games():
+    """Measure monthly Clan Games from each active member's cumulative achievement."""
+    now = datetime.now(timezone.utc)
+    season = month_key(now)
+    season_start = datetime.strptime(season, "%Y-%m").replace(tzinfo=timezone.utc)
+    active_tags = database.current_member_tags()
+    baselines_saved = 0
+    baseline_failures = 0
+
+    # The monthly snapshot is taken before Clan Games normally begin. New joiners
+    # receive their own baseline so points earned before joining are not attributed.
+    for tag in active_tags:
+        if database.clan_games_baseline(season, tag):
+            continue
+        baseline_attempt_key = f"clan_games:baseline_attempt:{season}:{tag}"
+        attempt_day = now.date().isoformat()
+        if database.get_state(baseline_attempt_key) == attempt_day:
+            continue
+        database.set_state(baseline_attempt_key, attempt_day)
+        joined_at = parse_api_time(database.member_joined_at(tag))
+        joined_this_month = bool(joined_at and joined_at >= season_start)
+        baseline_is_timely = now.day <= 15 or joined_this_month
+        try:
+            score = await player_clan_games_score(tag)
+        except Exception as exc:
+            baseline_failures += 1
+            log.warning("Clan-Spiele-Ausgangswert für %s nicht abrufbar: %s", tag, exc)
+            continue
+        database.save_clan_games_baseline(season, tag, score, baseline_is_timely)
+        baselines_saved += 1
+        if not baseline_is_timely:
+            log.warning("Clan-Spiele für %s/%s nicht bewertet: Ausgangswert wurde erst nach Monatsmitte erfasst", season, tag)
+
+    # Wait two days after the month changes to give the API time to publish final
+    # achievement values. Retries happen once per day if a player profile fails.
+    if now.day < 3:
+        return {"season": season, "baselines_saved": baselines_saved, "baseline_failures": baseline_failures, "finalized": False}
+
+    completed_season = previous_month(now)
+    if database.get_state(f"clan_games:finalized:{completed_season}"):
+        return {"season": season, "baselines_saved": baselines_saved, "baseline_failures": baseline_failures, "finalized": True}
+
+    attempt_day = now.date().isoformat()
+    attempt_key = f"clan_games:attempt:{completed_season}"
+    if database.get_state(attempt_key) == attempt_day:
+        return {"season": season, "baselines_saved": baselines_saved, "baseline_failures": baseline_failures, "finalized": False}
+    database.set_state(attempt_key, attempt_day)
+
+    results = []
+    final_failures = 0
+    current_month_start = datetime.strptime(season, "%Y-%m").replace(tzinfo=timezone.utc)
+    completed_month_start = datetime.strptime(completed_season, "%Y-%m").replace(tzinfo=timezone.utc)
+    for tag in active_tags:
+        baseline = database.clan_games_baseline(completed_season, tag)
+        if not baseline or not baseline["eligible"]:
+            continue
+        joined_at = parse_api_time(database.member_joined_at(tag))
+        if joined_at and joined_at >= current_month_start:
+            # A member who joined/rejoined after the scored month did not belong
+            # to the clan during that month's participation window.
+            continue
+        try:
+            score = await player_clan_games_score(tag)
+        except Exception as exc:
+            final_failures += 1
+            log.warning("Clan-Spiele-Endstand für %s/%s nicht abrufbar: %s", completed_season, tag, exc)
+            continue
+        earned = max(0, score - int(baseline["score"]))
+        joined_during_season = bool(joined_at and completed_month_start <= joined_at < current_month_start)
+        points = 0 if earned == 0 and joined_during_season else points_for_clan_games(earned)
+        results.append((tag, earned, points))
+
+    # Replacing the season entry makes retries safe and applies only to active
+    # members. Former members retain their history but are never newly scored.
+    for tag, earned, points in results:
+        database.replace_points(
+            tag,
+            f"clangames:{completed_season}:{tag}",
+            "Clan-Spiele",
+            f"Automatisch erfasst: {earned} Punkte",
+            points,
+        )
+
+    # Try again tomorrow if the API missed any active player's final profile.
+    if final_failures == 0 or now.day >= 7:
+        database.set_state(f"clan_games:finalized:{completed_season}", "1")
+    return {
+        "season": season,
+        "baselines_saved": baselines_saved,
+        "baseline_failures": baseline_failures,
+        "scored_members": len(results),
+        "finalization_failures": final_failures,
+        "finalized": final_failures == 0 or now.day >= 7,
+    }
+
+
 async def sync_once():
     if not (os.getenv("CLAN_TAG") and os.getenv("COC_API_TOKEN")):
         return {"status": "demo", "message": "CLAN_TAG oder COC_API_TOKEN fehlt"}
     result = {}
-    for name, fn in (("members", sync_members), ("war", sync_regular_war), ("cwl", sync_cwl), ("raids", sync_raids)):
+    for name, fn in (("members", sync_members), ("war", sync_regular_war), ("cwl", sync_cwl), ("raids", sync_raids), ("clan_games", sync_clan_games)):
+        if name == "clan_games" and isinstance(result.get("members"), dict):
+            result[name] = {"skipped": "Mitglieder-Synchronisierung fehlgeschlagen; aktueller Clanstatus ist nicht bestätigt"}
+            continue
         try:
             result[name] = await fn()
         except Exception as exc:

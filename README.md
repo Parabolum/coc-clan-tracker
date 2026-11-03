@@ -53,15 +53,15 @@ Für echte Daten `CLAN_TAG` und `COC_API_TOKEN` in `.env` eintragen. Den API-Tok
 - FastAPI-Backend und SQLite-Speicher für Spieler sowie nachvollziehbare Punktebuchungen
 - konfigurierbare Beispielregeln in `app/scoring.py`
 - serverseitige CoC-API-Anbindung mit automatischer Synchronisierung (standardmäßig alle 5 Minuten)
-- geschützte Admin-Seite für Punktebuchungen, Löschung manueller Buchungen und Clan-Spiele, Mitgliederstatus, Abwesenheiten, Kommentare und manuelle Mitgliederpflege
+- geschützte Admin-Seite für manuelle Punktebuchungen, Löschung von Buchungen, Mitgliederstatus, Abwesenheiten, Kommentare und manuelle Mitgliederpflege
 
 ## Datenabdeckung
 
 Der Importjob synchronisiert Mitglieder und Spenden, erfasst laufende Kriege und verbucht deren Spielergebnisse nach Kriegsende. CWL-Kriege werden über die War-Tags der aktuellen CWL-Gruppe ermittelt und nach Abschluss verbucht. Raid-Saisons werden importiert und Spielerangriffe nach Saisonabschluss mit der einstellbaren Regel in `app/scoring.py` bewertet. Ereignisse und Punktebuchungen werden dedupliziert.
 
-Die offiziellen Raid-Saisonwerte enthalten Angriffe, persönliche Angriffsgrenze und Bonusangriffsgrenze. Entsprechend der Tabelle gibt es -1 bei null Angriffen, +1 bei allen möglichen Angriffen und 0 bei teilweise genutzten Angriffen. Clan-Spiele haben keinen eigenen Endpunkt in der dokumentierten offiziellen API und werden daher nicht automatisch verbucht. Eine rückwirkende Erfassung vor dem Start des Trackers ist nur möglich, soweit die API noch entsprechende Daten bereitstellt.
+Die offiziellen Raid-Saisonwerte enthalten Angriffe, persönliche Angriffsgrenze und Bonusangriffsgrenze. Entsprechend der Tabelle gibt es -1 bei null Angriffen, +1 bei allen möglichen Angriffen und 0 bei teilweise genutzten Angriffen. Clan-Spiele werden indirekt über den kumulativen „Games Champion“-Erfolgswert der Spielerprofile erfasst: Der Tracker speichert einen Monats-Ausgangswert und vergleicht ihn nach Monatsende mit dem neuen Wert. Der Zähler wird als Fortschrittswert ausgelesen und nicht auf das 100.000er-Sternziel begrenzt. Ergebnisse werden nur für aktuell bestätigte Clanmitglieder verbucht. Neue Mitglieder erhalten beim Beitritt einen eigenen Ausgangswert; wenn sie im gewerteten Monat beigetreten sind und 0 Punkte erzielt haben, erhalten sie keinen Malus. Der Dienst muss für einen gültigen Monats-Ausgangswert spätestens vor Monatsmitte laufen; fehlt ein rechtzeitiger Ausgangswert, wird für das Mitglied kein automatischer Clan-Spiele-Eintrag erzeugt, statt einen falschen Malus zu vergeben. Der Endstand wird ab dem 3. des Folgemonats abgerufen, damit die API Zeit hat, den letzten Fortschritt zu veröffentlichen.
 
-Die Punktregeln folgen dem übermittelten Bild: CK 2 Angriffe +1, 1 Angriff 0, 0 Angriffe bei Teilnahme -2; CWL -4 je vergessenem Angriff und ein einmaliger Saisonbonus nach Gesamtsternen (14–17: +1, 18–20: +2, 21: +4); Spenden +1 je 1.000; Clan-Spiele-Schwellen wie im Bild (können wegen fehlender API-Daten nicht automatisch berechnet werden).
+Die Punktregeln: CK 2 Angriffe +1, 1 Angriff 0, 0 Angriffe bei Teilnahme -2; CWL -4 je vergessenem Angriff und ein einmaliger Saisonbonus nach Gesamtsternen (14–17: +1, 18–20: +2, 21: +4); Spenden +1 je 1.000; Clan-Spiele 10.000+ Punkte +3, 4.000–9.999 +1, 1–3.999 0 und 0 Punkte -3 (außer bei Beitritt im gewerteten Monat: 0 Punkte).
 
 ## Nächste Umsetzungsschritte
 
@@ -76,7 +76,6 @@ Die Punktregeln folgen dem übermittelten Bild: CK 2 Angriffe +1, 1 Angriff 0, 0
 - `GET /api/members/{player_tag}` – Punktebuchungen für einen Spieler
 - `/admin` – Admin-Oberfläche (HTTP-Basic-Anmeldung aus `.env`)
 - `POST /api/admin/adjustments` – geschützte manuelle Punktebuchung
-- `POST /api/admin/clan-games` – geschützter Clan-Spiele-Eintrag anhand des Punktestands
 - `POST /api/admin/sync` – geschützte sofortige Synchronisierung
 - `GET /docs` – interaktive API-Dokumentation
 

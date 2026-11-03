@@ -51,6 +51,14 @@ def initialize():
                 payload TEXT NOT NULL,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
+            CREATE TABLE IF NOT EXISTS clan_games_baselines (
+                season TEXT NOT NULL,
+                player_tag TEXT NOT NULL,
+                score INTEGER NOT NULL,
+                eligible INTEGER NOT NULL DEFAULT 1,
+                captured_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY(season, player_tag)
+            );
         """)
         columns = {row["name"] for row in db.execute("PRAGMA table_info(members)")}
         for name, sql_type in (("joined_clan_at", "TEXT"), ("weekly_activity", "TEXT DEFAULT 'inaktiv'"), ("absence_start", "TEXT"), ("absence_end", "TEXT"), ("admin_comment", "TEXT DEFAULT ''"), ("is_current_clan", "INTEGER NOT NULL DEFAULT 1")):
@@ -142,6 +150,18 @@ def member_joined_at(player_tag):
     with connect() as db:
         row = db.execute("SELECT joined_clan_at FROM members WHERE player_tag=?", (player_tag,)).fetchone()
         return row[0] if row else None
+
+
+def clan_games_baseline(season, player_tag):
+    with connect() as db:
+        row = db.execute("SELECT score,eligible FROM clan_games_baselines WHERE season=? AND player_tag=?", (season, player_tag)).fetchone()
+    return dict(row) if row else None
+
+
+def save_clan_games_baseline(season, player_tag, score, eligible):
+    with connect() as db:
+        db.execute("""INSERT OR IGNORE INTO clan_games_baselines(season,player_tag,score,eligible)
+            VALUES(?,?,?,?)""", (season, player_tag, score, int(eligible)))
 
 
 def remove_points(player_tag, event_key, category, description):

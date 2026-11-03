@@ -15,7 +15,7 @@ SCORING_RULES = {
         "stars_21": 4,
     },
     "donations": {"per_1000_donated": 1},
-    "clan_games": {"at_least_4000": 3, "1000_to_3999": 0, "below_1000": -3},
+    "clan_games": {"at_least_10000": 3, "4000_to_9999": 1, "1_to_3999": 0, "zero": -3},
     "raid_weekend": {"no_attacks": -1, "all_attacks": 1, "partial_attacks": 0},
 }
 
@@ -29,11 +29,13 @@ def points_for_war(attacks_used: int) -> int:
 
 
 def points_for_clan_games(score: int) -> int:
+    if score >= 10000:
+        return SCORING_RULES["clan_games"]["at_least_10000"]
     if score >= 4000:
-        return SCORING_RULES["clan_games"]["at_least_4000"]
-    if score >= 1000:
-        return SCORING_RULES["clan_games"]["1000_to_3999"]
-    return SCORING_RULES["clan_games"]["below_1000"]
+        return SCORING_RULES["clan_games"]["4000_to_9999"]
+    if score >= 1:
+        return SCORING_RULES["clan_games"]["1_to_3999"]
+    return SCORING_RULES["clan_games"]["zero"]
 
 
 def points_for_raid(attacks: int, attack_limit: int, bonus_attack_limit: int = 0) -> int:

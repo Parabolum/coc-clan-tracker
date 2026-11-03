@@ -137,27 +137,6 @@ $('adjustment-form').addEventListener('submit', async (event) => {
   }
 });
 
-$('games-form').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const formElement = event.currentTarget;
-  const form = new FormData(formElement);
-  const payload = { player_tag: form.get('player_tag'), season: form.get('season'), score: Number(form.get('score')) };
-  const season = form.get('season');
-  const button = formElement.querySelector('button[type="submit"]');
-  button.disabled = true;
-  try {
-    const result = await api('/api/admin/clan-games', { method: 'POST', body: JSON.stringify(payload) });
-    showMessage($('games-message'), `Clan-Spiele erfasst: ${result.points > 0 ? '+' : ''}${result.points} Punkte.`);
-    formElement.reset();
-    formElement.elements.season.value = season;
-    await loadHistory();
-  } catch (error) {
-    showMessage($('games-message'), error.message, true);
-  } finally {
-    button.disabled = false;
-  }
-});
-
 $('member-status-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
@@ -220,6 +199,4 @@ $('sync-now').addEventListener('click', async () => {
   }
 });
 
-const currentSeason = new Date().toISOString().slice(0, 7);
-$('games-form').elements.season.value = currentSeason;
 }

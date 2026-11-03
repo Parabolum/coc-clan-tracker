@@ -50,3 +50,8 @@ async def get_raid_seasons():
 
 async def get_cwl_war(war_tag: str):
     return await get_endpoint(f"clanwarleagues/wars/{quote(war_tag, safe='')}")
+
+
+async def get_player(player_tag: str):
+    """Fetch a player profile, including achievement progress."""
+    return await get_endpoint(f"players/{quote(player_tag, safe='')}")
