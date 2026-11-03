@@ -63,11 +63,13 @@ function fillMemberStatus() {
 }
 
 async function loadHistory() {
-  const result = await fetch('/api/history?limit=25').then((response) => response.json());
+  const result = await api('/api/admin/history?limit=25');
   const entries = result.items || [];
   $('admin-history').innerHTML = entries.map((entry) => {
     const points = Number(entry.points || 0);
-    return `<div class="history-row"><b>${escapeHtml(entry.name)}</b><span>${escapeHtml(entry.category)} · ${escapeHtml(entry.description)}</span><strong class="history-points ${points < 0 ? 'negative' : ''}">${points > 0 ? '+' : ''}${points}</strong><small>${new Date(`${entry.created_at}Z`).toLocaleString('de-DE')}</small></div>`;
+    const deletable = entry.event_key.startsWith('manual:') || entry.event_key.startsWith('clangames:');
+    const deleteButton = deletable ? `<button class="history-delete" type="button" data-entry-id="${Number(entry.id)}" aria-label="Buchung von ${escapeHtml(entry.name)} löschen">Löschen</button>` : '<span class="history-locked" title="Automatische Buchungen können nicht gelöscht werden">Automatisch</span>';
+    return `<div class="history-row"><b>${escapeHtml(entry.name)}</b><span>${escapeHtml(entry.category)} · ${escapeHtml(entry.description)}</span><strong class="history-points ${points < 0 ? 'negative' : ''}">${points > 0 ? '+' : ''}${points}</strong><small>${new Date(`${entry.created_at}Z`).toLocaleString('de-DE')}</small>${deleteButton}</div>`;
   }).join('') || '<p class="empty-state">Noch keine Buchungen.</p>';
 }
 
@@ -98,6 +100,20 @@ document.querySelectorAll('.admin-tab').forEach((tab) => tab.addEventListener('c
 $('logout').addEventListener('click', () => { authorization = ''; window.location.reload(); });
 $('reload-history').addEventListener('click', loadHistory);
 $('member-management-select').addEventListener('change', fillMemberStatus);
+$('admin-history').addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-entry-id]');
+  if (!button) return;
+  if (!window.confirm('Diese manuelle Buchung wirklich löschen?')) return;
+  button.disabled = true;
+  try {
+    await api(`/api/admin/history/${button.dataset.entryId}`, { method: 'DELETE' });
+    showMessage($('history-action-message'), 'Buchung gelöscht.');
+    await loadHistory();
+  } catch (error) {
+    showMessage($('history-action-message'), error.message, true);
+    button.disabled = false;
+  }
+});
 
 $('adjustment-form').addEventListener('submit', async (event) => {
   event.preventDefault();
