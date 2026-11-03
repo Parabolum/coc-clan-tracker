@@ -1,6 +1,7 @@
 services:
   tracker:
-    build: .
+    image: ghcr.io/parabolum/coc-clan-tracker:latest
+    pull_policy: always
     container_name: coc-clan-tracker
     restart: unless-stopped
     init: true
@@ -11,7 +12,7 @@ services:
     ports:
       - "127.0.0.1:8001:8001"
     volumes:
-      - ./data:/app/data
+      - tracker_data:/app/data
     healthcheck:
       test:
         - CMD
@@ -22,3 +23,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+volumes:
+  tracker_data:
