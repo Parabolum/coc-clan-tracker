@@ -15,6 +15,17 @@ function initials(name = '') {
   return name.trim().split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join('').toUpperCase() || '–';
 }
 
+function displayRole(role = '') {
+  const roles = {
+    leader: 'Anführer',
+    coleader: 'Co-Anführer',
+    admin: 'Ältester',
+    elder: 'Ältester',
+    member: 'Mitglied'
+  };
+  return roles[String(role).toLowerCase().replace(/[\s_-]/g, '')] || role || 'Mitglied';
+}
+
 function iconFor(category = '') {
   const value = category.toLowerCase();
   if (value.includes('krieg') || value.includes('cwl')) return { icon: '⚔', style: 'war' };
@@ -35,7 +46,7 @@ function displayCategory(category = '') {
 function memberRow(member, index) {
   return `<div class="member-row">
     <span class="rank ${index < 3 ? 'top' : ''}">${String(index + 1).padStart(2, '0')}</span>
-    <span class="member-person"><span class="avatar">${escapeHtml(initials(member.name))}</span><span><b>${escapeHtml(member.name)}</b><small>${escapeHtml(member.role || 'Mitglied')}</small></span></span>
+    <span class="member-person"><span class="avatar">${escapeHtml(initials(member.name))}</span><span><b>${escapeHtml(member.name)}</b><small>${escapeHtml(displayRole(member.role))}</small></span></span>
     <span class="th">TH ${escapeHtml(member.town_hall_level ?? '—')}</span>
     <strong class="points">${Number(member.points || 0).toLocaleString('de-DE')}</strong>
   </div>`;
@@ -51,7 +62,7 @@ function directoryMemberRow(member, former = false) {
     return `<td class="category-score ${value > 0 ? 'positive' : value < 0 ? 'negative' : ''}">${value > 0 ? '+' : ''}${value}</td>`;
   }).join('');
   return `<tr class="${former ? 'former-member-row' : ''}">
-    <td class="member-name-cell"><span class="member-name">${escapeHtml(member.name)}</span><small>${former ? 'Ehemalig' : escapeHtml(member.role || 'Mitglied')}</small></td>
+    <td class="member-name-cell"><span class="member-name">${escapeHtml(member.name)}</span><small>${former ? 'Ehemalig' : escapeHtml(displayRole(member.role))}</small></td>
     <td class="total-score">${points.toLocaleString('de-DE')}</td>
     ${scoreCells}
     <td><span class="kick-status ${atRisk ? 'at-risk' : 'safe'}" title="Keine Kickgefahr ab 1 Punkt">${atRisk ? '⚠ Kickgefahr' : '✓ Keine Gefahr'}</span></td>
@@ -68,7 +79,7 @@ function renderMembers() {
   const query = $('member-search').value.trim().toLocaleLowerCase('de-DE');
   const filtered = current.filter((member) => `${member.name} ${member.role || ''}`.toLocaleLowerCase('de-DE').includes(query));
   const filteredFormer = former.filter((member) => `${member.name}`.toLocaleLowerCase('de-DE').includes(query));
-  $('member-directory').innerHTML = filtered.map(directoryMemberRow).join('') || '<tr><td class="table-empty" colspan="9">Keine passenden Mitglieder gefunden.</td></tr>';
+  $('member-directory').innerHTML = filtered.map((member) => directoryMemberRow(member)).join('') || '<tr><td class="table-empty" colspan="9">Keine passenden Mitglieder gefunden.</td></tr>';
   $('former-member-directory').innerHTML = filteredFormer.map((member) => directoryMemberRow(member, true)).join('') || '<tr><td class="table-empty" colspan="9">Keine ehemaligen Mitglieder.</td></tr>';
 }
 
