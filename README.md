@@ -1,0 +1,89 @@
+# CoC Clan Tracker
+
+Ein Clan-Punktetracker mit periodischem Import aus der offiziellen Supercell-API. Lokal lässt er sich mit Python starten oder auf einem Linux-Server mit Docker Compose samt HTTPS-Reverse-Proxy betreiben.
+
+## Linux-Server mit Docker Compose
+
+Voraussetzungen: Docker Engine mit Docker Compose Plugin. Docker startet nur den Tracker; der Webserver oder Reverse-Proxy wird separat eingerichtet, wenn du die Seite öffentlich bereitstellen möchtest.
+
+1. Projektdateien auf den Server kopieren und im Projektordner `.env.example` als `.env` kopieren.
+2. In `.env` `CLAN_TAG`, `COC_API_TOKEN` und ein starkes `ADMIN_PASSWORD` eintragen. Den API-Schlüssel nicht ins Repository kopieren. Die öffentliche ausgehende IP des Servers muss im Supercell Developer Portal für den API-Schlüssel freigegeben sein.
+3. Wenn du den Tracker später öffentlich freigibst, richte Domain, DNS, HTTPS und Reverse-Proxy separat ein. Der Container-Port ist standardmäßig nur auf `127.0.0.1:8001` des Servers erreichbar.
+4. Falls du den bisherigen Punktestand übernehmen willst, die bestehende `data/tracker.sqlite3` in den Ordner `data` auf dem Server kopieren. Den Datenordner anlegen und dem Container Schreibrechte geben:
+
+   ```sh
+   mkdir -p data
+   sudo chown -R 10001:10001 data
+   ```
+
+5. Im Projektordner starten:
+
+   ```sh
+   docker compose up -d --build
+   ```
+
+Der Tracker-Container startet danach im Hintergrund und automatisch nach einem Serverneustart. Auf dem Server erreichst du ihn lokal unter `http://127.0.0.1:8001`; für einen Reverse-Proxy kannst du dorthin weiterleiten. Die SQLite-Datei bleibt im Ordner `data` erhalten.
+
+Nützliche Befehle:
+
+```sh
+docker compose ps
+docker compose logs -f tracker
+docker compose up -d --build
+```
+
+Wenn du später einen Reverse-Proxy installierst, leite die Domain auf `127.0.0.1:8001` weiter. Bei Caddy wäre das im Caddyfile zum Beispiel `tracker.example.com { reverse_proxy 127.0.0.1:8001 }`; DNS sowie öffentliche Erreichbarkeit der benötigten Ports müssen dann passend eingerichtet werden.
+
+## Starten
+
+1. Python 3.11+ installieren.
+2. Im Projektordner ausführen:
+
+   ```powershell
+   py -m venv .venv
+   .\.venv\Scripts\Activate.ps1
+   pip install -r requirements.txt
+   Copy-Item .env.example .env
+   uvicorn app.main:app --reload
+   ```
+
+3. `http://127.0.0.1:8001` öffnen.
+
+Die Admin-Seite erreichst du über `http://127.0.0.1:8001/admin`. Vor der ersten Anmeldung in `.env` `ADMIN_USERNAME` und ein eigenes starkes `ADMIN_PASSWORD` setzen. Die Beispielwerte aus `.env.example` sind Platzhalter und müssen ersetzt werden.
+
+Für echte Daten `CLAN_TAG` und `COC_API_TOKEN` in `.env` eintragen. Den API-Token niemals in den Browser-Code oder ein öffentliches Repository schreiben. API-Tokens werden im Supercell Developer Portal erstellt; dort muss die Server-IP für den Token zugelassen sein.
+
+## Funktionen
+
+- responsives Dashboard mit Rangliste, Ereignisübersicht und Punktestand pro Spieler
+- FastAPI-Backend und SQLite-Speicher für Spieler sowie nachvollziehbare Punktebuchungen
+- konfigurierbare Beispielregeln in `app/scoring.py`
+- serverseitige CoC-API-Anbindung mit automatischer Synchronisierung (standardmäßig alle 5 Minuten)
+- geschützte Admin-Seite für Punktebuchungen, Clan-Spiele, Mitgliederstatus, Abwesenheiten, Kommentare und manuelle Mitgliederpflege
+
+## Datenabdeckung
+
+Der Importjob synchronisiert Mitglieder und Spenden, erfasst laufende Kriege und verbucht deren Spielergebnisse nach Kriegsende. CWL-Kriege werden über die War-Tags der aktuellen CWL-Gruppe ermittelt und nach Abschluss verbucht. Raid-Saisons werden importiert und Spielerangriffe nach Saisonabschluss mit der einstellbaren Regel in `app/scoring.py` bewertet. Ereignisse und Punktebuchungen werden dedupliziert.
+
+Die offiziellen Raid-Saisonwerte enthalten Angriffe, persönliche Angriffsgrenze und Bonusangriffsgrenze. Entsprechend der Tabelle gibt es -1 bei null Angriffen, +1 bei allen möglichen Angriffen und 0 bei teilweise genutzten Angriffen. Clan-Spiele haben keinen eigenen Endpunkt in der dokumentierten offiziellen API und werden daher nicht automatisch verbucht. Eine rückwirkende Erfassung vor dem Start des Trackers ist nur möglich, soweit die API noch entsprechende Daten bereitstellt.
+
+Die Punktregeln folgen dem übermittelten Bild: CK 2 Angriffe +1, 1 Angriff 0, 0 Angriffe bei Teilnahme -2; CWL -4 je vergessenem Angriff und ein einmaliger Saisonbonus nach Gesamtsternen (14–17: +1, 18–20: +2, 21: +4); Spenden +1 je 1.000; Clan-Spiele-Schwellen wie im Bild (können wegen fehlender API-Daten nicht automatisch berechnet werden).
+
+## Nächste Umsetzungsschritte
+
+1. Clan-Tag und API-Zugang in `.env` eintragen.
+2. Vorläufige Regeln in `app/scoring.py` mit der Clan-Tabelle abgleichen.
+3. Für öffentliches Hosting HTTPS und Zugriffsschutz für die Mitgliederansicht einrichten.
+
+## API
+
+- `GET /api/health` – Status
+- `GET /api/dashboard` – Rangliste und letzte Buchungen
+- `GET /api/members/{player_tag}` – Punktebuchungen für einen Spieler
+- `/admin` – Admin-Oberfläche (HTTP-Basic-Anmeldung aus `.env`)
+- `POST /api/admin/adjustments` – geschützte manuelle Punktebuchung
+- `POST /api/admin/clan-games` – geschützter Clan-Spiele-Eintrag anhand des Punktestands
+- `POST /api/admin/sync` – geschützte sofortige Synchronisierung
+- `GET /docs` – interaktive API-Dokumentation
+
+Admin-Schreibzugriffe und Mitgliedsverwaltung sind durch HTTP-Basic-Anmeldung geschützt. Bei öffentlichem Hosting muss HTTPS aktiviert sein; die normale Mitgliederansicht ist derzeit öffentlich lesbar.
