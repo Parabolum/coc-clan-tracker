@@ -173,6 +173,27 @@ def admin_members(_admin: str = Depends(require_admin)):
     return {"members": [dict(row) for row in rows]}
 
 
+@app.get("/api/admin/history")
+def admin_history(limit: int = Query(default=25, ge=1, le=100), _admin: str = Depends(require_admin)):
+    with database.connect() as db:
+        rows = db.execute("""SELECT p.id,p.event_key,p.player_tag,m.name,p.category,p.description,p.points,p.created_at
+            FROM point_entries p JOIN members m ON m.player_tag=p.player_tag
+            ORDER BY p.id DESC LIMIT ?""", (limit,)).fetchall()
+    return {"items": [dict(row) for row in rows]}
+
+
+@app.delete("/api/admin/history/{entry_id}")
+def delete_admin_history_entry(entry_id: int, _admin: str = Depends(require_admin)):
+    with database.connect() as db:
+        row = db.execute("SELECT event_key FROM point_entries WHERE id=?", (entry_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "Buchung nicht gefunden")
+        if not row["event_key"].startswith(("manual:", "clangames:")):
+            raise HTTPException(409, "Automatische Buchungen können hier nicht gelöscht werden.")
+        db.execute("DELETE FROM point_entries WHERE id=?", (entry_id,))
+    return {"deleted": True, "id": entry_id}
+
+
 @app.post("/api/admin/members")
 def create_member(item: MemberCreate, _admin: str = Depends(require_admin)):
     tag = item.player_tag.upper()
