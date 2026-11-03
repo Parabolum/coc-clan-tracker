@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b100f">
   <title>Clan Tracker · Administration</title>
-  <link rel="stylesheet" href="admin.css?v=3">
+  <link rel="stylesheet" href="admin.css?v=4">
 </head>
 <body>
   <header class="admin-topbar">
@@ -58,20 +58,17 @@
 
       <section class="admin-panel" id="members-panel" hidden>
         <article class="admin-card">
-          <div class="card-heading"><div><p class="overline">MITGLIEDERSTATUS</p><h2>Aktivität und Abmeldung</h2><p class="muted">Wöchentliche Aktivität, Abwesenheit und interner Kommentar pflegen.</p></div></div>
+          <div class="card-heading"><div><p class="overline">ABWESENHEIT</p><h2>Mitglied abmelden</h2><p class="muted">Der Abmeldebeginn ist automatisch der Buchungstag.</p></div></div>
           <form id="member-status-form" class="form-grid">
-            <label class="wide">Mitglied<select id="member-management-select" name="player_tag" required><option value="">Mitglieder werden geladen …</option></select></label>
-            <label>Wochenaktivität<select name="weekly_activity"><option value="aktiv">Aktiv</option><option value="inaktiv">Inaktiv</option><option value="abgemeldet">Abgemeldet</option></select></label>
-            <label>Abgemeldet von<input name="absence_start" type="date"></label>
-            <label>Abgemeldet bis<input name="absence_end" type="date"></label>
-            <label class="wide">Interner Kommentar<textarea name="admin_comment" rows="3" maxlength="500" placeholder="Optionaler Admin-Kommentar"></textarea></label>
-            <div class="wide form-actions"><button class="primary-button" type="submit">Mitglied aktualisieren</button><p class="message" id="member-status-message" role="status"></p></div>
+            <label>Mitglied<select id="member-management-select" name="player_tag" required><option value="">Mitglieder werden geladen …</option></select></label>
+            <label>Abgemeldet bis<input id="absence-end-input" name="absence_end_display" inputmode="numeric" placeholder="TT/MM/JJJJ" pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}" required></label>
+            <div class="wide form-actions"><button class="primary-button" type="submit">Abmeldung speichern</button><button id="clear-absence" class="quiet-button" type="button">Abmeldung aufheben</button><p class="message" id="member-status-message" role="status"></p></div>
           </form>
         </article>
         <article class="admin-card recent-card">
           <div class="card-heading"><div><p class="overline">MITGLIEDERSTATUS</p><h2>Aktuelle Aktivität und Abmeldungen</h2></div><button id="reload-member-status" class="quiet-button" type="button">Neu laden</button></div>
-          <p class="muted history-help">Übersicht, ob Mitglieder aktiv, inaktiv oder abgemeldet sind und für welchen Zeitraum eine Abmeldung gilt.</p>
-          <div id="member-status-list" class="admin-history"><p class="muted">Mitglieder werden geladen …</p></div>
+          <p class="muted history-help">Aktive Mitglieder mit ihrem aktuellen Abmeldestatus.</p>
+          <div class="member-status-table"><div class="member-status-header"><b>Mitglied</b><b>Status</b></div><div id="member-status-list" class="admin-history"><p class="muted">Mitglieder werden geladen …</p></div></div>
         </article>
       </section>
 
@@ -90,6 +87,6 @@
       <p class="admin-footer">Admin-Aktionen werden dauerhaft im Punkteverlauf gespeichert.</p>
     </section>
   </main>
-  <script src="admin.js?v=11"></script>
+  <script src="admin.js?v=12"></script>
 </body>
 </html>

@@ -2,7 +2,9 @@ import os
 import asyncio
 import hmac
 import uuid
+from datetime import date, datetime
 from contextlib import asynccontextmanager
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 
@@ -60,10 +62,7 @@ class Adjustment(BaseModel):
 
 class MemberAdminUpdate(BaseModel):
     player_tag: str = Field(min_length=3, max_length=20)
-    weekly_activity: Literal["aktiv", "inaktiv", "abgemeldet"]
-    absence_start: str | None = Field(default=None, max_length=10)
-    absence_end: str | None = Field(default=None, max_length=10)
-    admin_comment: str = Field(default="", max_length=500)
+    absence_end: date | None = None
 
 
 @app.get("/")
@@ -188,12 +187,19 @@ def delete_admin_history_entry(entry_id: int, _admin: str = Depends(require_admi
 
 @app.put("/api/admin/member-status")
 def update_member_status(item: MemberAdminUpdate, _admin: str = Depends(require_admin)):
+    today = datetime.now(ZoneInfo("Europe/Berlin")).date()
+    if item.absence_end is not None and item.absence_end < today:
+        raise HTTPException(422, "Das Abmeldedatum muss heute oder in der Zukunft liegen.")
     with database.connect() as db:
-        result = db.execute("""UPDATE members SET weekly_activity=?,absence_start=?,absence_end=?,admin_comment=?
-            WHERE player_tag=?""", (item.weekly_activity, item.absence_start or None, item.absence_end or None, item.admin_comment, item.player_tag))
+        if item.absence_end is None:
+            result = db.execute("""UPDATE members SET weekly_activity='aktiv',absence_start=NULL,absence_end=NULL
+                WHERE player_tag=?""", (item.player_tag,))
+        else:
+            result = db.execute("""UPDATE members SET weekly_activity='abgemeldet',absence_start=?,absence_end=?
+                WHERE player_tag=?""", (today.isoformat(), item.absence_end.isoformat(), item.player_tag))
         if result.rowcount == 0:
             raise HTTPException(404, "Mitglied nicht gefunden")
-    return {"saved": True}
+    return {"saved": True, "weekly_activity": "abgemeldet" if item.absence_end else "aktiv"}
 
 
 @app.post("/api/admin/adjustments")

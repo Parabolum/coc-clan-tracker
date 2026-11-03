@@ -48,30 +48,42 @@ async function loadMembers() {
   document.querySelectorAll('.member-select').forEach((select) => {
     select.innerHTML = options || '<option value="">Keine Mitglieder vorhanden</option>';
   });
-  $('member-management-select').innerHTML = adminMembers.map((member) => `<option value="${escapeHtml(member.player_tag)}">${escapeHtml(member.name)}${Number(member.is_current_clan) === 1 ? '' : ' · Ehemalig'} · ${escapeHtml(member.player_tag)}</option>`).join('') || '<option value="">Keine Mitglieder vorhanden</option>';
+  $('member-management-select').innerHTML = options || '<option value="">Keine Mitglieder vorhanden</option>';
   fillMemberStatus();
   renderMemberStatusList();
 }
 
 function renderMemberStatusList() {
-  const members = [...adminMembers].sort((a, b) => Number(b.is_current_clan) - Number(a.is_current_clan) || a.name.localeCompare(b.name, 'de'));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const members = adminMembers.filter((member) => Number(member.is_current_clan) === 1).sort((a, b) => a.name.localeCompare(b.name, 'de'));
   $('member-status-list').innerHTML = members.map((member) => {
-    const status = Number(member.is_current_clan) !== 1 ? 'Ehemalig' : (member.weekly_activity || 'inaktiv');
-    const period = member.absence_start || member.absence_end
-      ? `${member.absence_start ? new Date(`${member.absence_start}T00:00:00`).toLocaleDateString('de-DE') : '—'} bis ${member.absence_end ? new Date(`${member.absence_end}T00:00:00`).toLocaleDateString('de-DE') : 'offen'}`
-      : '—';
-    return `<div class="member-status-row"><b>${escapeHtml(member.name)}</b><span class="member-status-badge">${escapeHtml(status)}</span><span>${status === 'abgemeldet' ? period : (member.absence_start || member.absence_end ? period : 'Keine Abmeldung')}</span></div>`;
-  }).join('') || '<p class="empty-state">Keine Mitglieder vorhanden.</p>';
+    const currentlyAbsent = member.weekly_activity === 'abgemeldet' && (!member.absence_end || member.absence_end >= todayIso);
+    const status = currentlyAbsent
+      ? `Abgemeldet bis ${member.absence_end ? formatIsoDate(member.absence_end) : 'unbegrenzt'}`
+      : 'Aktiv';
+    return `<div class="member-status-row"><span>${escapeHtml(member.name)}</span><span class="member-status-badge ${currentlyAbsent ? 'absent' : 'active'}">${escapeHtml(status)}</span></div>`;
+  }).join('') || '<p class="empty-state">Keine aktiven Mitglieder vorhanden.</p>';
 }
 
 function fillMemberStatus() {
   const member = adminMembers.find((item) => item.player_tag === $('member-management-select').value);
-  if (!member) return;
-  const form = $('member-status-form');
-  form.elements.weekly_activity.value = member.weekly_activity || 'inaktiv';
-  form.elements.absence_start.value = member.absence_start || '';
-  form.elements.absence_end.value = member.absence_end || '';
-  form.elements.admin_comment.value = member.admin_comment || '';
+  $('absence-end-input').value = member?.weekly_activity === 'abgemeldet' && member.absence_end ? formatIsoDate(member.absence_end) : '';
+}
+
+function formatIsoDate(value) {
+  const [year, month, day] = value.split('-');
+  return `${day}/${month}/${year}`;
+}
+
+function parseDisplayDate(value) {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim());
+  if (!match) return null;
+  const [, day, month, year] = match;
+  const parsed = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  if (parsed.getUTCFullYear() !== Number(year) || parsed.getUTCMonth() !== Number(month) - 1 || parsed.getUTCDate() !== Number(day)) return null;
+  return `${year}-${month}-${day}`;
 }
 
 async function loadHistory(kind, containerId) {
@@ -124,6 +136,21 @@ $('reload-manual-history').addEventListener('click', loadManualHistory);
 $('reload-member-status').addEventListener('click', loadMembers);
 $('reload-points-history').addEventListener('click', loadPointsHistory);
 $('member-management-select').addEventListener('change', fillMemberStatus);
+$('clear-absence').addEventListener('click', async () => {
+  const playerTag = $('member-management-select').value;
+  if (!playerTag) return;
+  const button = $('clear-absence');
+  button.disabled = true;
+  try {
+    await api('/api/admin/member-status', { method: 'PUT', body: JSON.stringify({ player_tag: playerTag, absence_end: null }) });
+    showMessage($('member-status-message'), 'Abmeldung aufgehoben; Mitglied ist wieder aktiv.');
+    await loadMembers();
+  } catch (error) {
+    showMessage($('member-status-message'), error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+});
 async function deleteHistoryEntry(event, messageId, reload) {
   const button = event.target.closest('[data-entry-id]');
   if (!button) return;
@@ -165,16 +192,17 @@ $('adjustment-form').addEventListener('submit', async (event) => {
 $('member-status-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
-  const payload = {
-    player_tag: form.get('player_tag'), weekly_activity: form.get('weekly_activity'),
-    absence_start: form.get('absence_start') || null, absence_end: form.get('absence_end') || null,
-    admin_comment: form.get('admin_comment')
-  };
+  const absenceEnd = parseDisplayDate(form.get('absence_end_display'));
+  if (!absenceEnd) {
+    showMessage($('member-status-message'), 'Bitte ein gültiges Datum im Format TT/MM/JJJJ eingeben.', true);
+    return;
+  }
+  const payload = { player_tag: form.get('player_tag'), absence_end: absenceEnd };
   const button = event.currentTarget.querySelector('button[type="submit"]');
   button.disabled = true;
   try {
     await api('/api/admin/member-status', { method: 'PUT', body: JSON.stringify(payload) });
-    showMessage($('member-status-message'), 'Mitgliedsdaten gespeichert.');
+    showMessage($('member-status-message'), 'Abmeldung gespeichert.');
     await loadMembers();
   } catch (error) {
     showMessage($('member-status-message'), error.message, true);
