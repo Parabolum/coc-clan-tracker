@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 
 DB_PATH = Path(os.getenv("DATABASE_PATH", "data/tracker.sqlite3"))
@@ -21,6 +22,7 @@ def initialize():
                 role TEXT,
                 town_hall_level INTEGER,
                 last_seen TEXT DEFAULT CURRENT_TIMESTAMP,
+                joined_clan_at TEXT,
                 weekly_activity TEXT DEFAULT 'inaktiv',
                 absence_start TEXT,
                 absence_end TEXT,
@@ -51,7 +53,7 @@ def initialize():
             );
         """)
         columns = {row["name"] for row in db.execute("PRAGMA table_info(members)")}
-        for name, sql_type in (("weekly_activity", "TEXT DEFAULT 'inaktiv'"), ("absence_start", "TEXT"), ("absence_end", "TEXT"), ("admin_comment", "TEXT DEFAULT ''"), ("is_current_clan", "INTEGER NOT NULL DEFAULT 1")):
+        for name, sql_type in (("joined_clan_at", "TEXT"), ("weekly_activity", "TEXT DEFAULT 'inaktiv'"), ("absence_start", "TEXT"), ("absence_end", "TEXT"), ("admin_comment", "TEXT DEFAULT ''"), ("is_current_clan", "INTEGER NOT NULL DEFAULT 1")):
             if name not in columns:
                 db.execute(f"ALTER TABLE members ADD COLUMN {name} {sql_type}")
 
@@ -81,14 +83,16 @@ def dashboard_data():
 
 def upsert_member(tag, name, role=None, town_hall_level=None, is_current_clan=False):
     with connect() as db:
-        exists = db.execute("SELECT 1 FROM members WHERE player_tag=?", (tag,)).fetchone() is not None
-        db.execute("""INSERT INTO members(player_tag,name,role,town_hall_level,last_seen,is_current_clan)
-            VALUES(?,?,?,?,CURRENT_TIMESTAMP,?) ON CONFLICT(player_tag) DO UPDATE SET
+        previous = db.execute("SELECT is_current_clan FROM members WHERE player_tag=?", (tag,)).fetchone()
+        joined_at = datetime.now(timezone.utc).isoformat() if is_current_clan and (previous is None or not previous["is_current_clan"]) else None
+        db.execute("""INSERT INTO members(player_tag,name,role,town_hall_level,last_seen,is_current_clan,joined_clan_at)
+            VALUES(?,?,?,?,CURRENT_TIMESTAMP,?,?) ON CONFLICT(player_tag) DO UPDATE SET
             name=excluded.name, role=COALESCE(excluded.role,members.role),
             town_hall_level=COALESCE(excluded.town_hall_level,members.town_hall_level),
             is_current_clan=CASE WHEN excluded.is_current_clan=1 THEN 1 ELSE members.is_current_clan END,
-            last_seen=CURRENT_TIMESTAMP""", (tag, name, role, town_hall_level, int(is_current_clan)))
-        if not exists and is_current_clan:
+            joined_clan_at=COALESCE(excluded.joined_clan_at,members.joined_clan_at),
+            last_seen=CURRENT_TIMESTAMP""", (tag, name, role, town_hall_level, int(is_current_clan), joined_at))
+        if joined_at is not None and (previous is None):
             db.execute("""INSERT OR IGNORE INTO point_entries(player_tag,event_key,category,description,points)
                 VALUES(?,?,?,?,?)""", (tag, "tracker:starting-points", "Bonus", "Startguthaben", 10))
 
@@ -132,6 +136,18 @@ def latest_event(category, states=None):
 def current_member_tags():
     with connect() as db:
         return [row[0] for row in db.execute("SELECT player_tag FROM members WHERE is_current_clan=1")]
+
+
+def member_joined_at(player_tag):
+    with connect() as db:
+        row = db.execute("SELECT joined_clan_at FROM members WHERE player_tag=?", (player_tag,)).fetchone()
+        return row[0] if row else None
+
+
+def remove_points(player_tag, event_key, category, description):
+    with connect() as db:
+        db.execute("DELETE FROM point_entries WHERE player_tag=? AND event_key=? AND category=? AND description=?",
+                   (player_tag, event_key, category, description))
 
 
 def book_points(player_tag, event_key, category, description, points):
