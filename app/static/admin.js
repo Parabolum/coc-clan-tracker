@@ -50,6 +50,18 @@ async function loadMembers() {
   });
   $('member-management-select').innerHTML = adminMembers.map((member) => `<option value="${escapeHtml(member.player_tag)}">${escapeHtml(member.name)}${Number(member.is_current_clan) === 1 ? '' : ' · Ehemalig'} · ${escapeHtml(member.player_tag)}</option>`).join('') || '<option value="">Keine Mitglieder vorhanden</option>';
   fillMemberStatus();
+  renderMemberStatusList();
+}
+
+function renderMemberStatusList() {
+  const members = [...adminMembers].sort((a, b) => Number(b.is_current_clan) - Number(a.is_current_clan) || a.name.localeCompare(b.name, 'de'));
+  $('member-status-list').innerHTML = members.map((member) => {
+    const status = Number(member.is_current_clan) !== 1 ? 'Ehemalig' : (member.weekly_activity || 'inaktiv');
+    const period = member.absence_start || member.absence_end
+      ? `${member.absence_start ? new Date(`${member.absence_start}T00:00:00`).toLocaleDateString('de-DE') : '—'} bis ${member.absence_end ? new Date(`${member.absence_end}T00:00:00`).toLocaleDateString('de-DE') : 'offen'}`
+      : '—';
+    return `<div class="member-status-row"><b>${escapeHtml(member.name)}</b><span class="member-status-badge">${escapeHtml(status)}</span><span>${status === 'abgemeldet' ? period : (member.absence_start || member.absence_end ? period : 'Keine Abmeldung')}</span></div>`;
+  }).join('') || '<p class="empty-state">Keine Mitglieder vorhanden.</p>';
 }
 
 function fillMemberStatus() {
@@ -74,13 +86,19 @@ async function loadHistory(kind, containerId) {
 }
 
 const loadManualHistory = () => loadHistory('manual', 'manual-history');
-const loadActivityHistory = () => loadHistory('activity', 'activity-history');
-const loadHistoryLists = () => Promise.all([loadManualHistory(), loadActivityHistory()]);
+
+async function loadPointsHistory() {
+  const result = await api('/api/history?limit=1000');
+  $('points-history').innerHTML = (result.items || []).map((entry) => {
+    const points = Number(entry.points || 0);
+    return `<div class="history-row"><b>${escapeHtml(entry.name)}</b><span>${escapeHtml(entry.category)} · ${escapeHtml(entry.description)}</span><strong class="history-points ${points < 0 ? 'negative' : ''}">${points > 0 ? '+' : ''}${points}</strong><small>${new Date(`${entry.created_at}Z`).toLocaleString('de-DE')}</small></div>`;
+  }).join('') || '<p class="empty-state">Noch keine Buchungen.</p>';
+}
 
 async function openAdmin() {
   $('login-card').hidden = true;
   $('admin-app').hidden = false;
-  await Promise.all([loadMembers(), loadHistoryLists()]);
+  await Promise.all([loadMembers(), loadManualHistory(), loadPointsHistory()]);
 }
 
 $('login-form').addEventListener('submit', async (event) => {
@@ -103,7 +121,8 @@ $('login-form').addEventListener('submit', async (event) => {
 document.querySelectorAll('.admin-tab').forEach((tab) => tab.addEventListener('click', () => switchPanel(tab.dataset.panel)));
 $('logout').addEventListener('click', () => { authorization = ''; window.location.reload(); });
 $('reload-manual-history').addEventListener('click', loadManualHistory);
-$('reload-activity-history').addEventListener('click', loadActivityHistory);
+$('reload-member-status').addEventListener('click', loadMembers);
+$('reload-points-history').addEventListener('click', loadPointsHistory);
 $('member-management-select').addEventListener('change', fillMemberStatus);
 async function deleteHistoryEntry(event, messageId, reload) {
   const button = event.target.closest('[data-entry-id]');
@@ -120,7 +139,6 @@ async function deleteHistoryEntry(event, messageId, reload) {
   }
 }
 $('manual-history').addEventListener('click', (event) => deleteHistoryEntry(event, 'manual-action-message', loadManualHistory));
-$('activity-history').addEventListener('click', (event) => deleteHistoryEntry(event, 'activity-action-message', loadActivityHistory));
 
 $('adjustment-form').addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -174,7 +192,7 @@ $('sync-now').addEventListener('click', async () => {
   try {
     const result = await api('/api/admin/sync', { method: 'POST' });
     resultPanel.textContent = JSON.stringify(result, null, 2);
-    await Promise.all([loadMembers(), loadHistoryLists()]);
+    await Promise.all([loadMembers(), loadManualHistory(), loadPointsHistory()]);
   } catch (error) {
     resultPanel.textContent = error.message;
   } finally {

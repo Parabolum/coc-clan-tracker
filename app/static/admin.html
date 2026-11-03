@@ -69,10 +69,9 @@
           </form>
         </article>
         <article class="admin-card recent-card">
-          <div class="card-heading"><div><p class="overline">AUTOMATISCH ERFASST</p><h2>Aktivitätsbuchungen</h2></div><button id="reload-activity-history" class="quiet-button" type="button">Neu laden</button></div>
-          <p class="muted history-help">Hier erscheinen automatische Punktebuchungen für Clan-Aktivitäten.</p>
-          <p id="activity-action-message" class="message" role="status"></p>
-          <div id="activity-history" class="admin-history"><p class="muted">Einträge werden geladen …</p></div>
+          <div class="card-heading"><div><p class="overline">MITGLIEDERSTATUS</p><h2>Aktuelle Aktivität und Abmeldungen</h2></div><button id="reload-member-status" class="quiet-button" type="button">Neu laden</button></div>
+          <p class="muted history-help">Übersicht, ob Mitglieder aktiv, inaktiv oder abgemeldet sind und für welchen Zeitraum eine Abmeldung gilt.</p>
+          <div id="member-status-list" class="admin-history"><p class="muted">Mitglieder werden geladen …</p></div>
         </article>
       </section>
 
@@ -82,11 +81,15 @@
           <button id="sync-now" class="primary-button" type="button">Jetzt synchronisieren</button>
           <pre id="sync-result" class="sync-result" hidden></pre>
         </article>
+        <article class="admin-card recent-card">
+          <div class="card-heading"><div><p class="overline">PUNKTEVERLAUF</p><h2>Alle Punktebuchungen</h2></div><button id="reload-points-history" class="quiet-button" type="button">Neu laden</button></div>
+          <div id="points-history" class="admin-history"><p class="muted">Einträge werden geladen …</p></div>
+        </article>
       </section>
 
       <p class="admin-footer">Admin-Aktionen werden dauerhaft im Punkteverlauf gespeichert.</p>
     </section>
   </main>
-  <script src="admin.js?v=10"></script>
+  <script src="admin.js?v=11"></script>
 </body>
 </html>
