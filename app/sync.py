@@ -172,18 +172,23 @@ async def sync_raids():
     if (season.get("state") or "").lower() not in {"ended", "raidended"}:
         return len(season.get("members", []))
     raid_members = {clean_tag(member.get("tag")): member for member in season.get("members", []) if member.get("tag")}
+    raid_started_at = parse_api_time(season.get("startTime"))
     for member in season.get("members", []):
         tag = member.get("tag")
         if not tag:
             continue
         database.upsert_member(tag, member.get("name", tag))
         attacks = int(member.get("attacks", 0) or 0)
+        joined_at = parse_api_time(database.member_joined_at(tag))
+        if attacks == 0 and joined_at and raid_started_at and joined_at > raid_started_at:
+            # A new member may be present in the API season list with zero attacks.
+            database.remove_points(tag, key, "Überfall-Wochenende", "0 Raid-Angriffe")
+            continue
         points = points_for_raid(attacks, int(member.get("attackLimit", 0) or 0), int(member.get("bonusAttackLimit", 0) or 0))
         database.book_points(tag, key, "Überfall-Wochenende", f"{attacks} Raid-Angriffe", points)
     for tag in database.current_member_tags():
         if clean_tag(tag) not in raid_members:
             joined_at = parse_api_time(database.member_joined_at(tag))
-            raid_started_at = parse_api_time(season.get("startTime"))
             if joined_at and raid_started_at and joined_at > raid_started_at:
                 # This player joined after the raid weekend started and was not present in its results.
                 # Remove a previously recorded absence penalty if this is a repeat sync.
