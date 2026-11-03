@@ -31,6 +31,7 @@ def parse_api_time(value):
 
 
 def book_war(event_key, members, category="Krieg", attacks_per_member=2):
+    entries = []
     for member in members:
         tag = member.get("tag")
         if not tag:
@@ -39,7 +40,8 @@ def book_war(event_key, members, category="Krieg", attacks_per_member=2):
         attacks = member.get("attacks") or []
         used = len(attacks)
         usage = points_for_war(used)
-        database.book_points(tag, event_key, category, f"{used}/{attacks_per_member} Angriffe", usage)
+        entries.append((tag, f"{used}/{attacks_per_member} Angriffe", usage))
+    database.replace_event_points(event_key, category, entries)
 
 
 async def sync_members():
@@ -74,12 +76,16 @@ async def sync_regular_war():
     clan = war.get("clan") or {}
     opponent = war.get("opponent") or {}
     if state in {"notinwar", "not_in_war", "clannotfound", "clan_not_found"}:
-        previous = database.latest_event("Krieg", {"war", "inwar", "preparation", "ended"})
+        previous = database.latest_event("Krieg", {"war", "inwar", "preparation", "ended", "warended"})
         if previous and previous["event_key"] != database.get_state("last_regular_war_booked"):
-            old_war = previous["payload"]
-            old_clan = old_war.get("clan") or {}
-            book_war(previous["event_key"], old_clan.get("members", []), "Krieg", int(old_war.get("attacksPerMember", 2) or 2))
-            database.set_state("last_regular_war_booked", previous["event_key"])
+            if previous["state"] in {"ended", "warended"}:
+                old_war = previous["payload"]
+                old_clan = old_war.get("clan") or {}
+                book_war(previous["event_key"], old_clan.get("members", []), "Krieg", int(old_war.get("attacksPerMember", 2) or 2))
+                database.set_state("last_regular_war_booked", previous["event_key"])
+            elif previous["event_key"] != database.get_state("last_regular_war_unavailable"):
+                log.warning("Krieg %s nicht bewertet: finales API-Ergebnis wurde verpasst", previous["event_key"])
+                database.set_state("last_regular_war_unavailable", previous["event_key"])
         return
     if not war.get("startTime") or not clan.get("tag"):
         return
@@ -107,6 +113,7 @@ async def sync_cwl():
     for round_data in rounds:
         own_war_found = False
         own_war_completed = False
+        war_entries = []
         for war_tag in round_data.get("warTags", []):
             if not war_tag or war_tag == "#0":
                 continue
@@ -135,9 +142,11 @@ async def sync_cwl():
                 expected = int(war.get("attacksPerMember", SCORING_RULES["cwl"]["expected_attacks_per_round"]) or 1)
                 missed = max(0, expected - len(attacks))
                 for miss_index in range(missed):
-                    database.book_points(tag, event_key, "CWL", f"Angriff vergessen {miss_index + 1}", SCORING_RULES["cwl"]["missed_attack"])
+                    war_entries.append((tag, f"Angriff vergessen {miss_index + 1}", SCORING_RULES["cwl"]["missed_attack"]))
                 total = season_totals.setdefault(tag, {"name": member.get("name", tag), "stars": 0})
                 total["stars"] += stars
+            if own_war_completed:
+                database.replace_event_points(event_key, "CWL", war_entries)
         if own_war_found and own_war_completed:
             completed_rounds += 1
         else:
@@ -146,6 +155,7 @@ async def sync_cwl():
     expected_rounds = len(rounds)
     if all_rounds_completed and completed_rounds >= expected_rounds:
         season_bonus_key = f"cwl:{season}:season-bonus"
+        bonus_entries = []
         for tag, total in season_totals.items():
             stars = total["stars"]
             if stars >= 21:
@@ -157,7 +167,8 @@ async def sync_cwl():
             else:
                 bonus = 0
             if bonus:
-                database.book_points(tag, season_bonus_key, "CWL", f"Sterne-Bonus ({stars})", bonus)
+                bonus_entries.append((tag, f"Sterne-Bonus ({stars})", bonus))
+        database.replace_event_points(season_bonus_key, "CWL", bonus_entries)
     return completed_rounds
 
 
@@ -173,6 +184,7 @@ async def sync_raids():
         return len(season.get("members", []))
     raid_members = {clean_tag(member.get("tag")): member for member in season.get("members", []) if member.get("tag")}
     raid_started_at = parse_api_time(season.get("startTime"))
+    raid_entries = []
     for member in season.get("members", []):
         tag = member.get("tag")
         if not tag:
@@ -182,19 +194,17 @@ async def sync_raids():
         joined_at = parse_api_time(database.member_joined_at(tag))
         if attacks == 0 and joined_at and raid_started_at and joined_at > raid_started_at:
             # A new member may be present in the API season list with zero attacks.
-            database.remove_points(tag, key, "Überfall-Wochenende", "0 Raid-Angriffe")
             continue
         points = points_for_raid(attacks, int(member.get("attackLimit", 0) or 0), int(member.get("bonusAttackLimit", 0) or 0))
-        database.book_points(tag, key, "Überfall-Wochenende", f"{attacks} Raid-Angriffe", points)
+        raid_entries.append((tag, f"{attacks} Raid-Angriffe", points))
     for tag in database.current_member_tags():
         if clean_tag(tag) not in raid_members:
             joined_at = parse_api_time(database.member_joined_at(tag))
             if joined_at and raid_started_at and joined_at > raid_started_at:
                 # This player joined after the raid weekend started and was not present in its results.
-                # Remove a previously recorded absence penalty if this is a repeat sync.
-                database.remove_points(tag, key, "Überfall-Wochenende", "Keine Raid-Angriffe")
                 continue
-            database.book_points(tag, key, "Überfall-Wochenende", "Keine Raid-Angriffe", SCORING_RULES["raid_weekend"]["no_attacks"])
+            raid_entries.append((tag, "Keine Raid-Angriffe", SCORING_RULES["raid_weekend"]["no_attacks"]))
+    database.replace_event_points(key, "Überfall-Wochenende", raid_entries)
     return len(season.get("members", []))
 
 
