@@ -227,7 +227,9 @@ async def sync_raids():
                 # This player joined after the raid weekend started and was not present in its results.
                 continue
             raid_entries.append((tag, "Keine Raid-Angriffe", SCORING_RULES["raid_weekend"]["no_attacks"]))
-    database.replace_event_points(key, "Überfall-Wochenende", raid_entries)
+    raid_ended_at = parse_api_time(season.get("endTime"))
+    event_created_at = raid_ended_at.strftime("%Y-%m-%d %H:%M:%S") if raid_ended_at else None
+    database.replace_event_points(key, "Überfall-Wochenende", raid_entries, created_at=event_created_at)
     return len(season.get("members", []))
 
 

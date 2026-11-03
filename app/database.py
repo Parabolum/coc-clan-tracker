@@ -170,8 +170,8 @@ def remove_points(player_tag, event_key, category, description):
                    (player_tag, event_key, category, description))
 
 
-def replace_event_points(event_key, category, entries):
-    """Reconcile event scores without changing timestamps for existing entries."""
+def replace_event_points(event_key, category, entries, created_at=None):
+    """Reconcile event scores while preserving or explicitly setting their timestamps."""
     with connect() as db:
         active_tags = {row[0] for row in db.execute("SELECT player_tag FROM members WHERE is_current_clan=1")}
         incoming = {
@@ -190,10 +190,11 @@ def replace_event_points(event_key, category, entries):
 
         for (player_tag, description), points in incoming.items():
             db.execute("""INSERT INTO point_entries(player_tag,event_key,category,description,points)
-                VALUES(?,?,?,?,?)
+                VALUES(?,?,?,?,COALESCE(?,CURRENT_TIMESTAMP))
                 ON CONFLICT(player_tag,event_key,category,description)
-                DO UPDATE SET points=excluded.points""",
-                (player_tag, event_key, category, description, points))
+                DO UPDATE SET points=excluded.points,
+                    created_at=CASE WHEN ? IS NULL THEN point_entries.created_at ELSE ? END""",
+                (player_tag, event_key, category, description, points, created_at, created_at))
 
 
 def book_points(player_tag, event_key, category, description, points):
