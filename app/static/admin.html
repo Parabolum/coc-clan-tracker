@@ -48,6 +48,12 @@
             <div class="wide form-actions"><button class="primary-button" type="submit">Buchung speichern</button><p class="message" id="adjustment-message" role="status"></p></div>
           </form>
         </article>
+        <article class="admin-card recent-card">
+          <div class="card-heading"><div><p class="overline">MANUELLES PROTOKOLL</p><h2>Manuelle Buchungen</h2></div><button id="reload-manual-history" class="quiet-button" type="button">Neu laden</button></div>
+          <p class="muted history-help">Hier erscheinen nur manuell erfasste Punktebuchungen.</p>
+          <p id="manual-action-message" class="message" role="status"></p>
+          <div id="manual-history" class="admin-history"><p class="muted">Einträge werden geladen …</p></div>
+        </article>
       </section>
 
       <section class="admin-panel" id="members-panel" hidden>
@@ -62,15 +68,11 @@
             <div class="wide form-actions"><button class="primary-button" type="submit">Mitglied aktualisieren</button><p class="message" id="member-status-message" role="status"></p></div>
           </form>
         </article>
-        <article class="admin-card add-member-card">
-          <div class="card-heading"><div><p class="overline">MANUELLE VERWALTUNG</p><h2>Mitglied hinzufügen</h2><p class="muted">Bis die API verbunden ist, kannst du Mitglieder hier manuell anlegen.</p></div></div>
-          <form id="add-member-form" class="form-grid">
-            <label>Spieler-Tag<input name="player_tag" placeholder="#2ABC123" maxlength="20" required></label>
-            <label>Name<input name="name" maxlength="40" required></label>
-            <label>Rolle<select name="role"><option>Mitglied</option><option>Ältester</option><option>Vize-Anführer</option><option>Anführer</option></select></label>
-            <label>Rathaus-Level<input name="town_hall_level" type="number" min="1" max="18" placeholder="optional"></label>
-            <div class="wide form-actions"><button class="primary-button" type="submit">Mitglied speichern</button><p class="message" id="add-member-message" role="status"></p></div>
-          </form>
+        <article class="admin-card recent-card">
+          <div class="card-heading"><div><p class="overline">AUTOMATISCH ERFASST</p><h2>Aktivitätsbuchungen</h2></div><button id="reload-activity-history" class="quiet-button" type="button">Neu laden</button></div>
+          <p class="muted history-help">Hier erscheinen automatische Punktebuchungen für Clan-Aktivitäten.</p>
+          <p id="activity-action-message" class="message" role="status"></p>
+          <div id="activity-history" class="admin-history"><p class="muted">Einträge werden geladen …</p></div>
         </article>
       </section>
 
@@ -82,15 +84,9 @@
         </article>
       </section>
 
-      <section class="admin-card recent-card">
-        <div class="card-heading"><div><p class="overline">ÄNDERUNGSPROTOKOLL</p><h2>Letzte Punktebuchungen</h2></div><button id="reload-history" class="quiet-button" type="button">Neu laden</button></div>
-        <p class="muted history-help">Manuelle Buchungen und Clan-Spiele können gelöscht werden. Automatische API-Buchungen bleiben geschützt.</p>
-        <p id="history-action-message" class="message" role="status"></p>
-        <div id="admin-history" class="admin-history"><p class="muted">Einträge werden geladen …</p></div>
-      </section>
       <p class="admin-footer">Admin-Aktionen werden dauerhaft im Punkteverlauf gespeichert.</p>
     </section>
   </main>
-  <script src="admin.js?v=8"></script>
+  <script src="admin.js?v=10"></script>
 </body>
 </html>

@@ -58,13 +58,6 @@ class Adjustment(BaseModel):
     points: int = Field(ge=-1000, le=1000)
 
 
-class MemberCreate(BaseModel):
-    player_tag: str = Field(min_length=3, max_length=20)
-    name: str = Field(min_length=1, max_length=40)
-    role: str = Field(default="Mitglied", max_length=30)
-    town_hall_level: int | None = Field(default=None, ge=1, le=18)
-
-
 class MemberAdminUpdate(BaseModel):
     player_tag: str = Field(min_length=3, max_length=20)
     weekly_activity: Literal["aktiv", "inaktiv", "abgemeldet"]
@@ -167,11 +160,17 @@ def admin_members(_admin: str = Depends(require_admin)):
 
 
 @app.get("/api/admin/history")
-def admin_history(limit: int = Query(default=25, ge=1, le=100), _admin: str = Depends(require_admin)):
+def admin_history(limit: int = Query(default=250, ge=1, le=1000), kind: Literal["manual", "activity"] | None = None, _admin: str = Depends(require_admin)):
+    manual_condition = "(p.event_key LIKE 'manual:%' OR (p.category='Clan-Spiele' AND p.description NOT LIKE 'Automatisch erfasst:%'))"
+    where = ""
+    if kind == "manual":
+        where = f"WHERE {manual_condition}"
+    elif kind == "activity":
+        where = f"WHERE NOT {manual_condition}"
     with database.connect() as db:
-        rows = db.execute("""SELECT p.id,p.event_key,p.player_tag,m.name,p.category,p.description,p.points,p.created_at
+        rows = db.execute(f"""SELECT p.id,p.event_key,p.player_tag,m.name,p.category,p.description,p.points,p.created_at
             FROM point_entries p JOIN members m ON m.player_tag=p.player_tag
-            ORDER BY p.id DESC LIMIT ?""", (limit,)).fetchall()
+            {where} ORDER BY p.id DESC LIMIT ?""", (limit,)).fetchall()
     return {"items": [dict(row) for row in rows]}
 
 
@@ -185,15 +184,6 @@ def delete_admin_history_entry(entry_id: int, _admin: str = Depends(require_admi
             raise HTTPException(409, "Automatische Buchungen können hier nicht gelöscht werden.")
         db.execute("DELETE FROM point_entries WHERE id=?", (entry_id,))
     return {"deleted": True, "id": entry_id}
-
-
-@app.post("/api/admin/members")
-def create_member(item: MemberCreate, _admin: str = Depends(require_admin)):
-    tag = item.player_tag.upper()
-    if not tag.startswith("#") or not tag[1:].isalnum():
-        raise HTTPException(422, "Spieler-Tag muss mit # beginnen und nur Buchstaben/Zahlen enthalten.")
-    database.upsert_member(tag, item.name, item.role, item.town_hall_level, is_current_clan=True)
-    return {"saved": True, "player_tag": tag}
 
 
 @app.put("/api/admin/member-status")

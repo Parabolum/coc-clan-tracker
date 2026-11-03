@@ -53,7 +53,7 @@ Für echte Daten `CLAN_TAG` und `COC_API_TOKEN` in `.env` eintragen. Den API-Tok
 - FastAPI-Backend und SQLite-Speicher für Spieler sowie nachvollziehbare Punktebuchungen
 - konfigurierbare Beispielregeln in `app/scoring.py`
 - serverseitige CoC-API-Anbindung mit automatischer Synchronisierung (standardmäßig alle 5 Minuten)
-- geschützte Admin-Seite für manuelle Punktebuchungen, Löschung von Buchungen, Mitgliederstatus, Abwesenheiten, Kommentare und manuelle Mitgliederpflege
+- geschützte Admin-Seite für manuelle Punktebuchungen, getrennte Aktivitätsprotokolle, Mitgliederstatus, Abwesenheiten und Kommentare
 
 ## Datenabdeckung
 

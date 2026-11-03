@@ -62,10 +62,10 @@ function fillMemberStatus() {
   form.elements.admin_comment.value = member.admin_comment || '';
 }
 
-async function loadHistory() {
-  const result = await api('/api/admin/history?limit=25');
+async function loadHistory(kind, containerId) {
+  const result = await api(`/api/admin/history?limit=1000&kind=${kind}`);
   const entries = result.items || [];
-  $('admin-history').innerHTML = entries.map((entry) => {
+  $(containerId).innerHTML = entries.map((entry) => {
     const points = Number(entry.points || 0);
     const deletable = entry.event_key.startsWith('manual:') || entry.event_key.startsWith('clangames:');
     const deleteButton = deletable ? `<button class="history-delete" type="button" data-entry-id="${Number(entry.id)}" aria-label="Buchung von ${escapeHtml(entry.name)} löschen">Löschen</button>` : '<span class="history-locked" title="Automatische Buchungen können nicht gelöscht werden">Automatisch</span>';
@@ -73,10 +73,14 @@ async function loadHistory() {
   }).join('') || '<p class="empty-state">Noch keine Buchungen.</p>';
 }
 
+const loadManualHistory = () => loadHistory('manual', 'manual-history');
+const loadActivityHistory = () => loadHistory('activity', 'activity-history');
+const loadHistoryLists = () => Promise.all([loadManualHistory(), loadActivityHistory()]);
+
 async function openAdmin() {
   $('login-card').hidden = true;
   $('admin-app').hidden = false;
-  await Promise.all([loadMembers(), loadHistory()]);
+  await Promise.all([loadMembers(), loadHistoryLists()]);
 }
 
 $('login-form').addEventListener('submit', async (event) => {
@@ -98,22 +102,25 @@ $('login-form').addEventListener('submit', async (event) => {
 
 document.querySelectorAll('.admin-tab').forEach((tab) => tab.addEventListener('click', () => switchPanel(tab.dataset.panel)));
 $('logout').addEventListener('click', () => { authorization = ''; window.location.reload(); });
-$('reload-history').addEventListener('click', loadHistory);
+$('reload-manual-history').addEventListener('click', loadManualHistory);
+$('reload-activity-history').addEventListener('click', loadActivityHistory);
 $('member-management-select').addEventListener('change', fillMemberStatus);
-$('admin-history').addEventListener('click', async (event) => {
+async function deleteHistoryEntry(event, messageId, reload) {
   const button = event.target.closest('[data-entry-id]');
   if (!button) return;
-  if (!window.confirm('Diese manuelle Buchung wirklich löschen?')) return;
+  if (!window.confirm('Diese Buchung wirklich löschen?')) return;
   button.disabled = true;
   try {
     await api(`/api/admin/history/${button.dataset.entryId}`, { method: 'DELETE' });
-    showMessage($('history-action-message'), 'Buchung gelöscht.');
-    await loadHistory();
+    showMessage($(messageId), 'Buchung gelöscht.');
+    await reload();
   } catch (error) {
-    showMessage($('history-action-message'), error.message, true);
+    showMessage($(messageId), error.message, true);
     button.disabled = false;
   }
-});
+}
+$('manual-history').addEventListener('click', (event) => deleteHistoryEntry(event, 'manual-action-message', loadManualHistory));
+$('activity-history').addEventListener('click', (event) => deleteHistoryEntry(event, 'activity-action-message', loadActivityHistory));
 
 $('adjustment-form').addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -129,7 +136,7 @@ $('adjustment-form').addEventListener('submit', async (event) => {
     await api('/api/admin/adjustments', { method: 'POST', body: JSON.stringify(payload) });
     showMessage($('adjustment-message'), 'Punktebuchung gespeichert.');
     formElement.reset();
-    await loadHistory();
+    await loadManualHistory();
   } catch (error) {
     showMessage($('adjustment-message'), error.message, true);
   } finally {
@@ -158,30 +165,6 @@ $('member-status-form').addEventListener('submit', async (event) => {
   }
 });
 
-$('add-member-form').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const formElement = event.currentTarget;
-  const form = new FormData(formElement);
-  const payload = {
-    player_tag: form.get('player_tag'), name: form.get('name'), role: form.get('role'),
-    town_hall_level: form.get('town_hall_level') ? Number(form.get('town_hall_level')) : null
-  };
-  const button = formElement.querySelector('button[type="submit"]');
-  button.disabled = true;
-  try {
-    await api('/api/admin/members', { method: 'POST', body: JSON.stringify(payload) });
-    showMessage($('add-member-message'), 'Mitglied gespeichert.');
-    formElement.reset();
-    await loadMembers();
-    $('member-management-select').value = payload.player_tag.toUpperCase();
-    fillMemberStatus();
-  } catch (error) {
-    showMessage($('add-member-message'), error.message, true);
-  } finally {
-    button.disabled = false;
-  }
-});
-
 $('sync-now').addEventListener('click', async () => {
   const button = $('sync-now');
   const resultPanel = $('sync-result');
@@ -191,7 +174,7 @@ $('sync-now').addEventListener('click', async () => {
   try {
     const result = await api('/api/admin/sync', { method: 'POST' });
     resultPanel.textContent = JSON.stringify(result, null, 2);
-    await Promise.all([loadMembers(), loadHistory()]);
+    await Promise.all([loadMembers(), loadHistoryLists()]);
   } catch (error) {
     resultPanel.textContent = error.message;
   } finally {
