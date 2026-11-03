@@ -6,30 +6,24 @@ Ein Clan-Punktetracker mit periodischem Import aus der offiziellen Supercell-API
 
 Voraussetzungen: Docker Engine mit Docker Compose Plugin. Docker startet nur den Tracker; der Webserver oder Reverse-Proxy wird separat eingerichtet, wenn du die Seite öffentlich bereitstellen möchtest.
 
-1. Projektdateien auf den Server kopieren und im Projektordner `.env.example` als `.env` kopieren.
+1. Nur `compose.yaml` und eine neu erstellte `.env` auf den Server kopieren. `.env.example` aus dem Repository kannst du als Vorlage verwenden; benenne die Kopie auf dem Server in `.env` um.
 2. In `.env` `CLAN_TAG`, `COC_API_TOKEN` und ein starkes `ADMIN_PASSWORD` eintragen. Den API-Schlüssel nicht ins Repository kopieren. Die öffentliche ausgehende IP des Servers muss im Supercell Developer Portal für den API-Schlüssel freigegeben sein.
 3. Wenn du den Tracker später öffentlich freigibst, richte Domain, DNS, HTTPS und Reverse-Proxy separat ein. Der Container-Port ist standardmäßig nur auf `127.0.0.1:8001` des Servers erreichbar.
-4. Falls du den bisherigen Punktestand übernehmen willst, die bestehende `data/tracker.sqlite3` in den Ordner `data` auf dem Server kopieren. Den Datenordner anlegen und dem Container Schreibrechte geben:
+4. Im Ordner mit diesen beiden Dateien starten:
 
    ```sh
-   mkdir -p data
-   sudo chown -R 10001:10001 data
+   docker compose up -d
    ```
 
-5. Im Projektordner starten:
-
-   ```sh
-   docker compose up -d --build
-   ```
-
-Der Tracker-Container startet danach im Hintergrund und automatisch nach einem Serverneustart. Auf dem Server erreichst du ihn lokal unter `http://127.0.0.1:8001`; für einen Reverse-Proxy kannst du dorthin weiterleiten. Die SQLite-Datei bleibt im Ordner `data` erhalten.
+Compose lädt dabei das veröffentlichte Image aus der GitHub Container Registry (GHCR) und startet den Tracker im Hintergrund. Der Container startet automatisch nach einem Serverneustart. Auf dem Server erreichst du ihn lokal unter `http://127.0.0.1:8001`; für einen Reverse-Proxy kannst du dorthin weiterleiten. Die SQLite-Datei bleibt im Docker-Volume `tracker_data` erhalten.
 
 Nützliche Befehle:
 
 ```sh
 docker compose ps
 docker compose logs -f tracker
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
 Wenn du später einen Reverse-Proxy installierst, leite die Domain auf `127.0.0.1:8001` weiter. Bei Caddy wäre das im Caddyfile zum Beispiel `tracker.example.com { reverse_proxy 127.0.0.1:8001 }`; DNS sowie öffentliche Erreichbarkeit der benötigten Ports müssen dann passend eingerichtet werden.
