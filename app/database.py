@@ -171,17 +171,29 @@ def remove_points(player_tag, event_key, category, description):
 
 
 def replace_event_points(event_key, category, entries):
-    """Replace automatic scores for an event while preserving former members' history."""
+    """Reconcile event scores without changing timestamps for existing entries."""
     with connect() as db:
-        db.execute("""DELETE FROM point_entries
+        active_tags = {row[0] for row in db.execute("SELECT player_tag FROM members WHERE is_current_clan=1")}
+        incoming = {
+            (player_tag, description): points
+            for player_tag, description, points in entries
+            if player_tag in active_tags
+        }
+        existing = db.execute("""SELECT id,player_tag,description FROM point_entries
             WHERE event_key=? AND category=?
               AND player_tag IN (SELECT player_tag FROM members WHERE is_current_clan=1)""",
-                   (event_key, category))
-        for player_tag, description, points in entries:
-            db.execute("""INSERT OR IGNORE INTO point_entries(player_tag,event_key,category,description,points)
-                SELECT ?,?,?,?,? WHERE EXISTS (
-                    SELECT 1 FROM members WHERE player_tag=? AND is_current_clan=1
-                )""", (player_tag, event_key, category, description, points, player_tag))
+            (event_key, category)).fetchall()
+
+        for row in existing:
+            if (row["player_tag"], row["description"]) not in incoming:
+                db.execute("DELETE FROM point_entries WHERE id=?", (row["id"],))
+
+        for (player_tag, description), points in incoming.items():
+            db.execute("""INSERT INTO point_entries(player_tag,event_key,category,description,points)
+                VALUES(?,?,?,?,?)
+                ON CONFLICT(player_tag,event_key,category,description)
+                DO UPDATE SET points=excluded.points""",
+                (player_tag, event_key, category, description, points))
 
 
 def book_points(player_tag, event_key, category, description, points):
