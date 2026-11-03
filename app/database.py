@@ -150,6 +150,20 @@ def remove_points(player_tag, event_key, category, description):
                    (player_tag, event_key, category, description))
 
 
+def replace_event_points(event_key, category, entries):
+    """Replace automatic scores for an event while preserving former members' history."""
+    with connect() as db:
+        db.execute("""DELETE FROM point_entries
+            WHERE event_key=? AND category=?
+              AND player_tag IN (SELECT player_tag FROM members WHERE is_current_clan=1)""",
+                   (event_key, category))
+        for player_tag, description, points in entries:
+            db.execute("""INSERT OR IGNORE INTO point_entries(player_tag,event_key,category,description,points)
+                SELECT ?,?,?,?,? WHERE EXISTS (
+                    SELECT 1 FROM members WHERE player_tag=? AND is_current_clan=1
+                )""", (player_tag, event_key, category, description, points, player_tag))
+
+
 def book_points(player_tag, event_key, category, description, points):
     with connect() as db:
         member = db.execute("SELECT is_current_clan FROM members WHERE player_tag=?", (player_tag,)).fetchone()
