@@ -14,6 +14,22 @@ def clean_tag(tag):
     return (tag or "").replace("#", "").upper()
 
 
+def parse_api_time(value):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y%m%dT%H%M%S.%fZ").replace(tzinfo=timezone.utc)
+    except ValueError:
+        try:
+            return datetime.strptime(value, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+        except ValueError:
+            try:
+                parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed.astimezone(timezone.utc)
+            except (ValueError, AttributeError):
+                return None
+
+
 def book_war(event_key, members, category="Krieg", attacks_per_member=2):
     for member in members:
         tag = member.get("tag")
@@ -166,6 +182,13 @@ async def sync_raids():
         database.book_points(tag, key, "Überfall-Wochenende", f"{attacks} Raid-Angriffe", points)
     for tag in database.current_member_tags():
         if clean_tag(tag) not in raid_members:
+            joined_at = parse_api_time(database.member_joined_at(tag))
+            raid_started_at = parse_api_time(season.get("startTime"))
+            if joined_at and raid_started_at and joined_at > raid_started_at:
+                # This player joined after the raid weekend started and was not present in its results.
+                # Remove a previously recorded absence penalty if this is a repeat sync.
+                database.remove_points(tag, key, "Überfall-Wochenende", "Keine Raid-Angriffe")
+                continue
             database.book_points(tag, key, "Überfall-Wochenende", "Keine Raid-Angriffe", SCORING_RULES["raid_weekend"]["no_attacks"])
     return len(season.get("members", []))
 
