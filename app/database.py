@@ -140,11 +140,7 @@ def current_member_tags():
 
 def member_joined_at(player_tag):
     with connect() as db:
-        row = db.execute("""SELECT COALESCE(
-                joined_clan_at,
-                (SELECT MIN(created_at) FROM point_entries
-                 WHERE player_tag=members.player_tag AND event_key='tracker:starting-points')
-            ) FROM members WHERE player_tag=?""", (player_tag,)).fetchone()
+        row = db.execute("SELECT joined_clan_at FROM members WHERE player_tag=?", (player_tag,)).fetchone()
         return row[0] if row else None
 
 
@@ -171,4 +167,3 @@ def replace_points(player_tag, event_key, category, description, points):
         db.execute("DELETE FROM point_entries WHERE player_tag=? AND event_key=? AND category=?", (player_tag, event_key, category))
         db.execute("INSERT INTO point_entries(player_tag,event_key,category,description,points) VALUES(?,?,?,?,?)", (player_tag, event_key, category, description, points))
         return True
-
