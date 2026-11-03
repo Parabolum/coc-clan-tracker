@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b100f">
   <title>Clan Tracker · Administration</title>
-  <link rel="stylesheet" href="admin.css?v=2">
+  <link rel="stylesheet" href="admin.css?v=3">
 </head>
 <body>
   <header class="admin-topbar">
@@ -98,11 +98,13 @@
 
       <section class="admin-card recent-card">
         <div class="card-heading"><div><p class="overline">ÄNDERUNGSPROTOKOLL</p><h2>Letzte Punktebuchungen</h2></div><button id="reload-history" class="quiet-button" type="button">Neu laden</button></div>
+        <p class="muted history-help">Manuelle Buchungen und Clan-Spiele können gelöscht werden. Automatische API-Buchungen bleiben geschützt.</p>
+        <p id="history-action-message" class="message" role="status"></p>
         <div id="admin-history" class="admin-history"><p class="muted">Einträge werden geladen …</p></div>
       </section>
       <p class="admin-footer">Admin-Aktionen werden dauerhaft im Punkteverlauf gespeichert.</p>
     </section>
   </main>
-  <script src="admin.js?v=6"></script>
+  <script src="admin.js?v=7"></script>
 </body>
 </html>
