@@ -152,6 +152,19 @@ def member_joined_at(player_tag):
         return row[0] if row else None
 
 
+def member_absent_during(player_tag, period_start, period_end):
+    """Return whether an explicit absence overlaps an event's inclusive date range."""
+    if not period_start or not period_end:
+        return False
+    with connect() as db:
+        row = db.execute("""SELECT 1 FROM members
+            WHERE player_tag=? AND weekly_activity='abgemeldet'
+              AND (absence_start IS NULL OR absence_start<=?)
+              AND (absence_end IS NULL OR absence_end>=?)
+            LIMIT 1""", (player_tag, period_end, period_start)).fetchone()
+    return row is not None
+
+
 def clan_games_baseline(season, player_tag):
     with connect() as db:
         row = db.execute("SELECT score,eligible FROM clan_games_baselines WHERE season=? AND player_tag=?", (season, player_tag)).fetchone()

@@ -2,7 +2,7 @@
 import asyncio
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from . import coc_api, database
 from .scoring import points_for_war, points_for_raid, SCORING_RULES
@@ -53,7 +53,11 @@ async def player_clan_games_score(tag):
     return achievement_clan_games_score(profile)
 
 
-def book_war(event_key, members, category="Krieg", attacks_per_member=2):
+def book_war(event_key, members, category="Krieg", attacks_per_member=2, start_time=None, end_time=None):
+    start_at = parse_api_time(start_time)
+    end_at = parse_api_time(end_time) or start_at
+    period_start = start_at.date().isoformat() if start_at else None
+    period_end = end_at.date().isoformat() if end_at else None
     entries = []
     for member in members:
         tag = member.get("tag")
@@ -63,6 +67,8 @@ def book_war(event_key, members, category="Krieg", attacks_per_member=2):
         attacks = member.get("attacks") or []
         used = len(attacks)
         usage = points_for_war(used)
+        if usage < 0 and database.member_absent_during(tag, period_start, period_end):
+            continue
         entries.append((tag, f"{used}/{attacks_per_member} Angriffe", usage))
     database.replace_event_points(event_key, category, entries)
 
@@ -104,7 +110,7 @@ async def sync_regular_war():
             if previous["state"] in {"ended", "warended"}:
                 old_war = previous["payload"]
                 old_clan = old_war.get("clan") or {}
-                book_war(previous["event_key"], old_clan.get("members", []), "Krieg", int(old_war.get("attacksPerMember", 2) or 2))
+                book_war(previous["event_key"], old_clan.get("members", []), "Krieg", int(old_war.get("attacksPerMember", 2) or 2), old_war.get("startTime"), old_war.get("endTime"))
                 database.set_state("last_regular_war_booked", previous["event_key"])
             elif previous["event_key"] != database.get_state("last_regular_war_unavailable"):
                 log.warning("Krieg %s nicht bewertet: finales API-Ergebnis wurde verpasst", previous["event_key"])
@@ -117,7 +123,7 @@ async def sync_regular_war():
     # Speichere den letzten vollständigen Stand auch während des Krieges.
     terminal = state in {"warended", "ended", "notinwar", "not_in_war"}
     if terminal and event_key != database.get_state("last_regular_war_booked"):
-        book_war(event_key, clan.get("members", []), "Krieg", int(war.get("attacksPerMember", 2) or 2))
+        book_war(event_key, clan.get("members", []), "Krieg", int(war.get("attacksPerMember", 2) or 2), war.get("startTime"), war.get("endTime"))
         database.set_state("last_regular_war_booked", event_key)
 
 
@@ -164,8 +170,16 @@ async def sync_cwl():
                 stars = sum(int(a.get("stars", 0) or 0) for a in attacks)
                 expected = int(war.get("attacksPerMember", SCORING_RULES["cwl"]["expected_attacks_per_round"]) or 1)
                 missed = max(0, expected - len(attacks))
-                for miss_index in range(missed):
-                    war_entries.append((tag, f"Angriff vergessen {miss_index + 1}", SCORING_RULES["cwl"]["missed_attack"]))
+                war_start = parse_api_time(war.get("startTime"))
+                war_end = parse_api_time(war.get("endTime")) or war_start
+                absent = database.member_absent_during(
+                    tag,
+                    war_start.date().isoformat() if war_start else None,
+                    war_end.date().isoformat() if war_end else None,
+                )
+                if not absent:
+                    for miss_index in range(missed):
+                        war_entries.append((tag, f"Angriff vergessen {miss_index + 1}", SCORING_RULES["cwl"]["missed_attack"]))
                 total = season_totals.setdefault(tag, {"name": member.get("name", tag), "stars": 0})
                 total["stars"] += stars
             if own_war_completed:
@@ -207,6 +221,9 @@ async def sync_raids():
         return len(season.get("members", []))
     raid_members = {clean_tag(member.get("tag")): member for member in season.get("members", []) if member.get("tag")}
     raid_started_at = parse_api_time(season.get("startTime"))
+    raid_ended_at = parse_api_time(season.get("endTime")) or raid_started_at
+    raid_period_start = raid_started_at.date().isoformat() if raid_started_at else None
+    raid_period_end = raid_ended_at.date().isoformat() if raid_ended_at else None
     raid_entries = []
     for member in season.get("members", []):
         tag = member.get("tag")
@@ -219,6 +236,8 @@ async def sync_raids():
             # A new member may be present in the API season list with zero attacks.
             continue
         points = points_for_raid(attacks, int(member.get("attackLimit", 0) or 0), int(member.get("bonusAttackLimit", 0) or 0))
+        if points < 0 and database.member_absent_during(tag, raid_period_start, raid_period_end):
+            continue
         raid_entries.append((tag, f"{attacks} Raid-Angriffe", points))
     for tag in database.current_member_tags():
         if clean_tag(tag) not in raid_members:
@@ -226,8 +245,8 @@ async def sync_raids():
             if joined_at and raid_started_at and joined_at > raid_started_at:
                 # This player joined after the raid weekend started and was not present in its results.
                 continue
-            raid_entries.append((tag, "Keine Raid-Angriffe", SCORING_RULES["raid_weekend"]["no_attacks"]))
-    raid_ended_at = parse_api_time(season.get("endTime"))
+            if not database.member_absent_during(tag, raid_period_start, raid_period_end):
+                raid_entries.append((tag, "Keine Raid-Angriffe", SCORING_RULES["raid_weekend"]["no_attacks"]))
     event_created_at = raid_ended_at.strftime("%Y-%m-%d %H:%M:%S") if raid_ended_at else None
     database.replace_event_points(key, "Überfall-Wochenende", raid_entries, created_at=event_created_at)
     return len(season.get("members", []))
@@ -303,6 +322,9 @@ async def sync_clan_games():
         earned = max(0, score - int(baseline["score"]))
         joined_during_season = bool(joined_at and completed_month_start <= joined_at < current_month_start)
         points = 0 if earned == 0 and joined_during_season else points_for_clan_games(earned)
+        season_end = (current_month_start.date() - timedelta(days=1)).isoformat()
+        if points < 0 and database.member_absent_during(tag, completed_month_start.date().isoformat(), season_end):
+            points = 0
         results.append((tag, earned, points))
 
     # Replacing the season entry makes retries safe and applies only to active
