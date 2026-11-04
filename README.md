@@ -7,7 +7,7 @@ Ein Clan-Punktetracker mit periodischem Import aus der offiziellen Supercell-API
 Voraussetzungen: Docker Engine mit Docker Compose Plugin. Docker startet nur den Tracker; der Webserver oder Reverse-Proxy wird separat eingerichtet, wenn du die Seite öffentlich bereitstellen möchtest.
 
 1. Nur `compose.yaml` und eine neu erstellte `.env` auf den Server kopieren. `.env.example` aus dem Repository kannst du als Vorlage verwenden; benenne die Kopie auf dem Server in `.env` um.
-2. In `.env` `CLAN_TAG`, `COC_API_TOKEN` und ein starkes `ADMIN_PASSWORD` eintragen. Den API-Schlüssel nicht ins Repository kopieren. Die öffentliche ausgehende IP des Servers muss im Supercell Developer Portal für den API-Schlüssel freigegeben sein.
+2. In `.env` `CLAN_TAG`, `COC_API_TOKEN` und ein starkes `ADMIN_PASSWORD` eintragen. Optional `SUPPORT_DISCORD` mit dem Discord-Namen für den Website-Kontakt setzen. Diesen Wert nur auf dem Server in `.env` eintragen, nicht ins Repository. Den API-Schlüssel ebenfalls nicht ins Repository kopieren. Die öffentliche ausgehende IP des Servers muss im Supercell Developer Portal für den API-Schlüssel freigegeben sein.
 3. Wenn du den Tracker später öffentlich freigibst, richte Domain, DNS, HTTPS und Reverse-Proxy separat ein. Der Container-Port ist standardmäßig nur auf `127.0.0.1:8001` des Servers erreichbar.
 4. Im Ordner mit diesen beiden Dateien starten:
 

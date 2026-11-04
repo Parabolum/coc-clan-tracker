@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0c1110">
   <title>Clan Tracker · Dashboard</title>
-  <link rel="stylesheet" href="style.css?v=15">
+  <link rel="stylesheet" href="style.css?v=16">
 </head>
 <body>
   <aside class="sidebar">
@@ -21,6 +21,7 @@
       <a class="nav-link" id="admin-link" href="/admin"><span class="nav-icon">⚙</span><span>Administration</span></a>
     </nav>
     <div class="sidebar-bottom">
+      <p id="support-contact" class="support-contact" hidden></p>
       <div class="clan-status"><span class="status-dot"></span><span><small>DATENSTATUS</small><strong id="status">Warte auf Server</strong></span></div>
     </div>
   </aside>
@@ -79,8 +80,8 @@
         <div id="history-list" class="history-list"></div>
       </article>
     </section>
-    <footer><span>CLAN TRACKER</span></footer>
+    <footer><span>CLAN TRACKER</span><span id="support-contact-footer" class="support-contact-footer" hidden></span></footer>
   </main>
-  <script src="app.js?v=16"></script>
+  <script src="app.js?v=17"></script>
 </body>
 </html>

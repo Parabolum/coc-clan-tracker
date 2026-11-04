@@ -127,6 +127,7 @@ function showView(name, updateHash = true) {
 }
 
 async function loadDashboard() {
+  loadSupportContact();
   const button = $('refresh');
   button.disabled = true;
   try {
@@ -161,6 +162,26 @@ async function loadDashboard() {
     renderHistory();
   } finally {
     button.disabled = false;
+  }
+}
+
+async function loadSupportContact() {
+  const contact = $('support-contact');
+  try {
+    const response = await fetch('/api/config');
+    if (!response.ok) throw new Error('Konfiguration nicht verfügbar');
+    const config = await response.json();
+    const name = String(config.support_discord || '').trim();
+    const text = name ? `Bei Problemen mit der Website per Discord an ${name} wenden.` : '';
+    contact.textContent = text;
+    contact.hidden = !name;
+    $('support-contact-footer').textContent = text;
+    $('support-contact-footer').hidden = !name;
+  } catch {
+    contact.textContent = '';
+    contact.hidden = true;
+    $('support-contact-footer').textContent = '';
+    $('support-contact-footer').hidden = true;
   }
 }
 

@@ -81,6 +81,11 @@ def health():
     return {"status": "ok", "api_configured": configured, "last_sync": database.get_state("last_sync")}
 
 
+@app.get("/api/config")
+def public_config():
+    return {"support_discord": os.getenv("SUPPORT_DISCORD", "").strip()}
+
+
 @app.get("/api/dashboard")
 def dashboard():
     return database.dashboard_data()

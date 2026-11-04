@@ -39,6 +39,7 @@ button, input, select { font: inherit; }
 .clan-status small { color: #829086; font-size: 9px; font-weight: 700; letter-spacing: 1.1px; }
 .clan-status strong { margin-top: 5px; color: #e2e9e2; font-size: 12px; font-weight: 650; }
 .sidebar-bottom p { margin: 15px 13px 0; color: #77847a; font-size: 12px; line-height: 1.7; }
+.sidebar-bottom .support-contact { margin: 0 13px 12px; color: #929e94; font-size: 11px; line-height: 1.5; }
 
 .main-content { max-width: 1600px; margin-left: 258px; padding: 0 clamp(30px, 4.7vw, 72px) 24px; }
 .topbar { display: flex; align-items: center; justify-content: space-between; height: 78px; border-bottom: 1px solid #202923; }
@@ -139,6 +140,7 @@ button, input, select { font: inherit; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
 footer { display: flex; justify-content: space-between; padding: 20px 3px 0; color: #748177; font-size: 11px; }
 footer span:first-child { color: #879487; font-weight: 700; letter-spacing: 1px; }
+.support-contact-footer { display: none; color: #929e94; font-weight: 400; letter-spacing: 0; }
 
 @media (max-width: 1050px) {
   .sidebar { width: 220px; }
@@ -183,4 +185,5 @@ footer span:first-child { color: #879487; font-weight: 700; letter-spacing: 1px;
   .search-box { max-width: none; height: 42px; }
   .select-wrap select { max-width: 145px; padding-left: 8px; font-size: 9px; }
   footer { flex-direction: column; gap: 8px; font-size: 9px; }
+  footer .support-contact-footer:not([hidden]) { display: block; }
 }
