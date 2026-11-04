@@ -2,6 +2,7 @@ const $ = (id) => document.getElementById(id);
 const viewInfo = {
   overview: { title: 'Clan-Übersicht', subtitle: 'Punktestände und letzte Buchungen.', breadcrumb: 'Übersicht' },
   members: { title: 'Mitglieder', subtitle: 'Punkte nach Kategorie und Gesamtstand.', breadcrumb: 'Mitglieder' },
+  rules: { title: 'Punktevergaberegeln', subtitle: 'So setzen sich die Punkte zusammen.', breadcrumb: 'Regeln' },
   history: { title: 'Punkteverlauf', subtitle: 'Buchungen nach Datum und Kategorie.', breadcrumb: 'Punkteverlauf' }
 };
 
