@@ -172,12 +172,21 @@ async function loadSupportContact() {
     const response = await fetch('/api/config');
     if (!response.ok) throw new Error('Konfiguration nicht verfügbar');
     const config = await response.json();
-    const name = String(config.support_discord || '').trim();
-    const text = name ? `Bei Problemen mit der Website per Discord an ${name} wenden.` : '';
+    const supportName = String(config.support_discord || '').trim();
+    const text = supportName ? `Bei Problemen mit der Website per Discord an ${supportName} wenden.` : '';
     contact.textContent = text;
-    contact.hidden = !name;
+    contact.hidden = !supportName;
     $('support-contact-footer').textContent = text;
-    $('support-contact-footer').hidden = !name;
+    $('support-contact-footer').hidden = !supportName;
+    const clanName = String(config.clan_name || '').trim();
+    if (clanName) {
+      $('clan-name').textContent = clanName;
+      $('clan-initial').textContent = [...clanName][0].toLocaleUpperCase('de-DE');
+      $('clan-overline').textContent = clanName.toLocaleUpperCase('de-DE');
+      $('clan-footer-name').textContent = clanName.toLocaleUpperCase('de-DE');
+      document.querySelector('.brand').setAttribute('aria-label', `${clanName} Übersicht`);
+      document.title = `${clanName} · Dashboard`;
+    }
   } catch {
     contact.textContent = '';
     contact.hidden = true;

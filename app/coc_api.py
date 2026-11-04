@@ -36,6 +36,13 @@ async def get_members():
     return await get_clan_endpoint("members")
 
 
+async def get_clan():
+    clan_tag = os.getenv("CLAN_TAG")
+    if not clan_tag:
+        raise RuntimeError("CLAN_TAG muss in .env gesetzt sein.")
+    return await get_endpoint(f"clans/{quote(clan_tag, safe='')}")
+
+
 async def get_current_war():
     return await get_clan_endpoint("currentwar")
 

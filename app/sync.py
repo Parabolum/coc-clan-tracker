@@ -53,6 +53,22 @@ async def player_clan_games_score(tag):
     return achievement_clan_games_score(profile)
 
 
+async def sync_clan_name():
+    now = datetime.now(timezone.utc)
+    last_attempt = parse_api_time(database.get_state("clan_name_last_attempt"))
+    if last_attempt and now - last_attempt < timedelta(hours=1):
+        return
+    database.set_state("clan_name_last_attempt", now.isoformat())
+    try:
+        clan = await coc_api.get_clan()
+    except Exception as exc:
+        log.warning("Clanname konnte nicht synchronisiert werden: %s", exc)
+        return
+    name = (clan.get("name") or "").strip()
+    if name:
+        database.set_state("clan_name", name)
+
+
 def book_war(event_key, members, category="Krieg", attacks_per_member=2, start_time=None, end_time=None):
     start_at = parse_api_time(start_time)
     end_at = parse_api_time(end_time) or start_at
@@ -354,6 +370,7 @@ async def sync_clan_games():
 async def sync_once():
     if not (os.getenv("CLAN_TAG") and os.getenv("COC_API_TOKEN")):
         return {"status": "demo", "message": "CLAN_TAG oder COC_API_TOKEN fehlt"}
+    await sync_clan_name()
     result = {}
     for name, fn in (("members", sync_members), ("war", sync_regular_war), ("cwl", sync_cwl), ("raids", sync_raids), ("clan_games", sync_clan_games)):
         if name == "clan_games" and isinstance(result.get("members"), dict):

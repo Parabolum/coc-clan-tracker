@@ -83,7 +83,10 @@ def health():
 
 @app.get("/api/config")
 def public_config():
-    return {"support_discord": os.getenv("SUPPORT_DISCORD", "").strip()}
+    return {
+        "support_discord": os.getenv("SUPPORT_DISCORD", "").strip(),
+        "clan_name": database.get_state("clan_name") or "",
+    }
 
 
 @app.get("/api/dashboard")
