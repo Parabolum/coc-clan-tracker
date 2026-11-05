@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0c1110">
   <title>Clan Tracker · Dashboard</title>
-  <link rel="stylesheet" href="style.css?v=18">
+  <link rel="stylesheet" href="style.css?v=19">
 </head>
 <body>
   <aside class="sidebar">
@@ -57,7 +57,7 @@
     </section>
 
     <section class="view" id="members" data-page="members" aria-label="Mitglieder">
-      <article class="card directory-card" id="active-members-card">
+      <article class="card directory-card">
         <div class="card-heading"><div><p class="overline">CLAN-RANGLISTE</p><h2>Aktive Mitglieder</h2></div><span class="count-label" id="member-label">0 Mitglieder</span></div>
         <label class="search-box"><span>⌕</span><input id="member-search" type="search" placeholder="Mitglied suchen …" autocomplete="off"></label>
         <div class="member-table-wrap"><table class="member-table">
@@ -65,17 +65,12 @@
           <tbody id="member-directory"></tbody>
         </table></div>
       </article>
-      <article class="card directory-card former-members-card" id="former-members-card">
+      <article class="card directory-card former-members-card">
         <div class="card-heading"><div><p class="overline">CLAN-ARCHIV</p><h2>Ehemalige Mitglieder</h2></div><span class="count-label" id="former-member-label">0 Mitglieder</span></div>
         <div class="member-table-wrap"><table class="member-table">
           <thead><tr><th>MITGLIED</th><th>GESAMT</th><th>CK</th><th>CWL</th><th>ÜBERFALL-WE</th><th>SPENDE</th><th>CLANSPIELE</th><th>BONUS</th><th>KICKGEFAHR</th></tr></thead>
           <tbody id="former-member-directory"></tbody>
         </table></div>
-      </article>
-      <article class="card history-card member-history-card" id="member-history-card" hidden>
-        <div class="card-heading"><div><p class="overline">MITGLIEDER-DETAILS</p><h2 id="member-history-title">Punkteverlauf</h2></div><button class="quiet-button" id="member-history-back" type="button">← Zur Mitgliederliste</button></div>
-        <p class="history-note" id="member-history-count">Lade Punkteverlauf …</p>
-        <div id="member-history-list" class="history-list"></div>
       </article>
     </section>
 
@@ -96,14 +91,14 @@
 
     <section class="view" id="history" data-page="history" aria-label="Punkteverlauf">
       <article class="card history-card">
-        <div class="card-heading"><div><p class="overline">PUNKTE-CHRONIK</p><h2>Alle Buchungen</h2></div><label class="select-wrap"><span class="sr-only">Kategorie filtern</span><select id="category-filter"><option value="">Alle Kategorien</option><option>CK</option><option>CWL</option><option>Überfall-WE</option><option>Spende</option><option>Clan-Spiele</option><option>Bonus</option></select></label></div>
+        <div class="card-heading"><div><p class="overline">PUNKTE-CHRONIK</p><h2 id="history-title">Alle Buchungen</h2></div><div class="history-filters"><label class="select-wrap"><span class="sr-only">Mitglied filtern</span><select id="member-filter"><option value="">Alle Mitglieder</option></select></label><label class="select-wrap"><span class="sr-only">Kategorie filtern</span><select id="category-filter"><option value="">Alle Kategorien</option><option>CK</option><option>CWL</option><option>Überfall-WE</option><option>Spende</option><option>Clan-Spiele</option><option>Bonus</option></select></label></div></div>
         <p class="history-note" id="history-count">Lade Punkteverlauf …</p>
         <div id="history-list" class="history-list"></div>
       </article>
     </section>
     <footer><span id="clan-footer-name">CLAN TRACKER</span><span id="support-contact-footer" class="support-contact-footer" hidden></span></footer>
   </main>
-  <script src="app.js?v=21"></script>
+  <script src="app.js?v=22"></script>
 </body>
 </html>
 
