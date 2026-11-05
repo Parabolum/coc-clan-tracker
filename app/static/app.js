@@ -8,6 +8,7 @@ const viewInfo = {
 
 let allMembers = [];
 let allHistory = [];
+const memberHistoryCache = new Map();
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 })[character]);
@@ -63,7 +64,7 @@ function directoryMemberRow(member, former = false) {
     return `<td class="category-score ${value > 0 ? 'positive' : value < 0 ? 'negative' : ''}">${value > 0 ? '+' : ''}${value}</td>`;
   }).join('');
   return `<tr class="${former ? 'former-member-row' : ''}">
-    <td class="member-name-cell"><button class="member-name member-history-trigger" type="button" data-player-tag="${escapeHtml(member.player_tag)}">${escapeHtml(member.name)}</button><small>${former ? 'Ehemalig' : escapeHtml(displayRole(member.role))}</small></td>
+    <td class="member-name-cell"><span class="member-name">${escapeHtml(member.name)}</span><small>${former ? 'Ehemalig' : escapeHtml(displayRole(member.role))}</small></td>
     <td class="total-score">${points.toLocaleString('de-DE')}</td>
     ${scoreCells}
     <td><span class="kick-status ${atRisk ? 'at-risk' : 'safe'}" title="Keine Kickgefahr ab 1 Punkt">${atRisk ? '⚠ Kickgefahr' : '✓ Keine Gefahr'}</span></td>
@@ -84,30 +85,6 @@ function renderMembers() {
   $('former-member-directory').innerHTML = filteredFormer.map((member) => directoryMemberRow(member, true)).join('') || '<tr><td class="table-empty" colspan="9">Keine ehemaligen Mitglieder.</td></tr>';
 }
 
-async function openMemberHistory(playerTag, memberName) {
-  $('active-members-card').hidden = true;
-  $('former-members-card').hidden = true;
-  $('member-history-card').hidden = false;
-  $('member-history-title').textContent = memberName;
-  $('member-history-count').textContent = 'Lade Punkteverlauf …';
-  $('member-history-list').innerHTML = '';
-  try {
-    const response = await fetch(`/api/history?player_tag=${encodeURIComponent(playerTag)}`);
-    if (!response.ok) throw new Error('Punkteverlauf konnte nicht geladen werden.');
-    const entries = (await response.json()).items || [];
-    $('member-history-count').textContent = `${entries.length} ${entries.length === 1 ? 'Buchung' : 'Buchungen'}`;
-    $('member-history-list').innerHTML = entries.map(historyRow).join('') || '<div class="empty">Für dieses Mitglied gibt es noch keine Buchungen.</div>';
-  } catch (error) {
-    $('member-history-count').textContent = error.message;
-  }
-}
-
-function closeMemberHistory() {
-  $('member-history-card').hidden = true;
-  $('active-members-card').hidden = false;
-  $('former-members-card').hidden = false;
-}
-
 function formatDate(value) {
   const date = new Date(`${value}Z`);
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -124,8 +101,17 @@ function historyRow(entry) {
 }
 
 function renderHistory() {
+  const selectedMember = $('member-filter').value;
   const selected = $('category-filter').value;
-  const entries = allHistory.filter((entry) => !selected || displayCategory(entry.category) === selected);
+  const memberName = allMembers.find((member) => member.player_tag === selectedMember)?.name;
+  $('history-title').textContent = memberName ? `Punkteverlauf · ${memberName}` : 'Alle Buchungen';
+  const source = selectedMember ? memberHistoryCache.get(selectedMember) : allHistory;
+  if (selectedMember && !source) {
+    $('history-count').textContent = 'Lade Punkteverlauf …';
+    $('history-list').innerHTML = '<div class="empty">Punkteverlauf wird geladen …</div>';
+    return;
+  }
+  const entries = (source || []).filter((entry) => !selected || displayCategory(entry.category) === selected);
   $('history-count').textContent = `${entries.length} ${entries.length === 1 ? 'Buchung' : 'Buchungen'}`;
   const html = entries.map(historyRow).join('');
   $('history-list').innerHTML = html || '<div class="empty">Für diese Auswahl gibt es noch keine Buchungen.</div>';
@@ -134,6 +120,42 @@ function renderHistory() {
     const points = Number(entry.points || 0);
     return `<div class="activity-item"><span class="activity-icon ${icon.style}">${icon.icon}</span><span class="activity-copy"><b>${escapeHtml(entry.name)} · ${escapeHtml(entry.description)}</b><small>${escapeHtml(displayCategory(entry.category))} · ${formatDate(entry.created_at)}</small></span><strong class="gain ${points < 0 ? 'loss' : ''}">${points > 0 ? '+' : ''}${points}</strong></div>`;
   }).join('') || '<div class="empty">Noch keine Punktebuchungen vorhanden.</div>';
+}
+
+function populateMemberFilter() {
+  const filter = $('member-filter');
+  const previous = filter.value;
+  const members = [...allMembers].sort((a, b) => String(a.name).localeCompare(String(b.name), 'de'));
+  filter.innerHTML = '<option value="">Alle Mitglieder</option>' + members.map((member) => {
+    const former = Number(member.is_current_clan) === 0;
+    return `<option value="${escapeHtml(member.player_tag)}">${escapeHtml(member.name)}${former ? ' (ehemalig)' : ''}</option>`;
+  }).join('');
+  if (members.some((member) => member.player_tag === previous)) filter.value = previous;
+}
+
+async function loadSelectedMemberHistory() {
+  const playerTag = $('member-filter').value;
+  if (!playerTag) {
+    renderHistory();
+    return;
+  }
+  if (memberHistoryCache.has(playerTag)) {
+    renderHistory();
+    return;
+  }
+  renderHistory();
+  try {
+    const response = await fetch(`/api/history?player_tag=${encodeURIComponent(playerTag)}`);
+    if (!response.ok) throw new Error('Punkteverlauf konnte nicht geladen werden.');
+    const entries = (await response.json()).items || [];
+    memberHistoryCache.set(playerTag, entries);
+    if ($('member-filter').value === playerTag) renderHistory();
+  } catch (error) {
+    if ($('member-filter').value === playerTag) {
+      $('history-count').textContent = error.message;
+      $('history-list').innerHTML = '';
+    }
+  }
 }
 
 function showView(name, updateHash = true) {
@@ -164,6 +186,7 @@ async function loadDashboard() {
     const health = await healthResponse.json();
     const table = tableResponse.ok ? await tableResponse.json() : null;
     allMembers = table?.members || dashboard.members || [];
+    populateMemberFilter();
     allHistory = historyResponse.ok ? ((await historyResponse.json()).items || []) : (dashboard.recent || []);
     $('status').textContent = health.api_configured ? 'Automatische Synchronisierung' : 'API nicht konfiguriert';
     $('status').closest('.clan-status').querySelector('.status-dot').classList.toggle('connected', Boolean(health.api_configured));
@@ -177,6 +200,7 @@ async function loadDashboard() {
   } catch (error) {
     allMembers = [];
     allHistory = [];
+    populateMemberFilter();
     $('status').textContent = 'Server nicht erreichbar';
     $('status').closest('.clan-status').querySelector('.status-dot').classList.remove('connected');
     $('total').textContent = allMembers.reduce((sum, member) => sum + member.points, 0).toLocaleString('de-DE');
@@ -224,19 +248,7 @@ document.querySelectorAll('[data-view]').forEach((link) => link.addEventListener
   showView(link.dataset.view);
 }));
 $('member-search').addEventListener('input', renderMembers);
-$('member-directory').addEventListener('click', (event) => {
-  const button = event.target.closest('.member-history-trigger');
-  if (!button) return;
-  const member = allMembers.find((item) => item.player_tag === button.dataset.playerTag);
-  if (member) openMemberHistory(member.player_tag, member.name);
-});
-$('former-member-directory').addEventListener('click', (event) => {
-  const button = event.target.closest('.member-history-trigger');
-  if (!button) return;
-  const member = allMembers.find((item) => item.player_tag === button.dataset.playerTag);
-  if (member) openMemberHistory(member.player_tag, member.name);
-});
-$('member-history-back').addEventListener('click', closeMemberHistory);
+$('member-filter').addEventListener('change', loadSelectedMemberHistory);
 $('category-filter').addEventListener('change', renderHistory);
 $('refresh').addEventListener('click', loadDashboard);
 window.addEventListener('hashchange', () => showView(location.hash.slice(1), false));
