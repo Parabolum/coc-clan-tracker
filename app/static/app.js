@@ -63,7 +63,7 @@ function directoryMemberRow(member, former = false) {
     return `<td class="category-score ${value > 0 ? 'positive' : value < 0 ? 'negative' : ''}">${value > 0 ? '+' : ''}${value}</td>`;
   }).join('');
   return `<tr class="${former ? 'former-member-row' : ''}">
-    <td class="member-name-cell"><span class="member-name">${escapeHtml(member.name)}</span><small>${former ? 'Ehemalig' : escapeHtml(displayRole(member.role))}</small></td>
+    <td class="member-name-cell"><button class="member-name member-history-trigger" type="button" data-player-tag="${escapeHtml(member.player_tag)}">${escapeHtml(member.name)}</button><small>${former ? 'Ehemalig' : escapeHtml(displayRole(member.role))}</small></td>
     <td class="total-score">${points.toLocaleString('de-DE')}</td>
     ${scoreCells}
     <td><span class="kick-status ${atRisk ? 'at-risk' : 'safe'}" title="Keine Kickgefahr ab 1 Punkt">${atRisk ? '⚠ Kickgefahr' : '✓ Keine Gefahr'}</span></td>
@@ -82,6 +82,30 @@ function renderMembers() {
   const filteredFormer = former.filter((member) => `${member.name}`.toLocaleLowerCase('de-DE').includes(query));
   $('member-directory').innerHTML = filtered.map((member) => directoryMemberRow(member)).join('') || '<tr><td class="table-empty" colspan="9">Keine passenden Mitglieder gefunden.</td></tr>';
   $('former-member-directory').innerHTML = filteredFormer.map((member) => directoryMemberRow(member, true)).join('') || '<tr><td class="table-empty" colspan="9">Keine ehemaligen Mitglieder.</td></tr>';
+}
+
+async function openMemberHistory(playerTag, memberName) {
+  $('active-members-card').hidden = true;
+  $('former-members-card').hidden = true;
+  $('member-history-card').hidden = false;
+  $('member-history-title').textContent = memberName;
+  $('member-history-count').textContent = 'Lade Punkteverlauf …';
+  $('member-history-list').innerHTML = '';
+  try {
+    const response = await fetch(`/api/history?player_tag=${encodeURIComponent(playerTag)}`);
+    if (!response.ok) throw new Error('Punkteverlauf konnte nicht geladen werden.');
+    const entries = (await response.json()).items || [];
+    $('member-history-count').textContent = `${entries.length} ${entries.length === 1 ? 'Buchung' : 'Buchungen'}`;
+    $('member-history-list').innerHTML = entries.map(historyRow).join('') || '<div class="empty">Für dieses Mitglied gibt es noch keine Buchungen.</div>';
+  } catch (error) {
+    $('member-history-count').textContent = error.message;
+  }
+}
+
+function closeMemberHistory() {
+  $('member-history-card').hidden = true;
+  $('active-members-card').hidden = false;
+  $('former-members-card').hidden = false;
 }
 
 function formatDate(value) {
@@ -200,9 +224,23 @@ document.querySelectorAll('[data-view]').forEach((link) => link.addEventListener
   showView(link.dataset.view);
 }));
 $('member-search').addEventListener('input', renderMembers);
+$('member-directory').addEventListener('click', (event) => {
+  const button = event.target.closest('.member-history-trigger');
+  if (!button) return;
+  const member = allMembers.find((item) => item.player_tag === button.dataset.playerTag);
+  if (member) openMemberHistory(member.player_tag, member.name);
+});
+$('former-member-directory').addEventListener('click', (event) => {
+  const button = event.target.closest('.member-history-trigger');
+  if (!button) return;
+  const member = allMembers.find((item) => item.player_tag === button.dataset.playerTag);
+  if (member) openMemberHistory(member.player_tag, member.name);
+});
+$('member-history-back').addEventListener('click', closeMemberHistory);
 $('category-filter').addEventListener('change', renderHistory);
 $('refresh').addEventListener('click', loadDashboard);
 window.addEventListener('hashchange', () => showView(location.hash.slice(1), false));
 $('today').textContent = new Date().toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'long' });
 showView(location.hash.slice(1) || 'overview', false);
 loadDashboard();
+
