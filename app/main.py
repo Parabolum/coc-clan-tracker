@@ -95,9 +95,17 @@ def dashboard():
 
 
 @app.get("/api/history")
-def points_history(limit: int = Query(default=250, ge=1, le=1000), category: str | None = None):
+def points_history(limit: int = Query(default=250, ge=1, le=1000), category: str | None = None, player_tag: str | None = None):
     with database.connect() as db:
-        if category:
+        if player_tag and category:
+            rows = db.execute("""SELECT p.player_tag,m.name,p.category,p.description,p.points,p.created_at
+                FROM point_entries p JOIN members m ON m.player_tag=p.player_tag
+                WHERE p.player_tag=? AND p.category=? ORDER BY p.id DESC""", (player_tag, category)).fetchall()
+        elif player_tag:
+            rows = db.execute("""SELECT p.player_tag,m.name,p.category,p.description,p.points,p.created_at
+                FROM point_entries p JOIN members m ON m.player_tag=p.player_tag
+                WHERE p.player_tag=? ORDER BY p.id DESC""", (player_tag,)).fetchall()
+        elif category:
             rows = db.execute("""SELECT p.player_tag,m.name,p.category,p.description,p.points,p.created_at
                 FROM point_entries p JOIN members m ON m.player_tag=p.player_tag
                 WHERE p.category=? ORDER BY p.id DESC LIMIT ?""", (category, limit)).fetchall()
@@ -247,3 +255,4 @@ async def api_preview(endpoint: str):
 
 # Also serve relative asset paths (style.css/app.js) for standalone HTML previews.
 app.mount("/", StaticFiles(directory="app/static", html=True), name="frontend")
+
