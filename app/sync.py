@@ -170,7 +170,11 @@ async def sync_cwl():
             state = (war.get("state") or "").lower()
             event_key = f"cwl:{season}:{war_tag}"
             database.save_event(event_key, "CWL", state, war)
-            clan = next((c for c in war.get("clans", []) if clean_tag(c.get("tag")) == clan_tag), None)
+            # CWL war responses use the same `clan` / `opponent` shape as
+            # regular wars; they do not contain the `clans` array used by the
+            # CWL league group response.
+            war_clans = [war.get("clan"), war.get("opponent")]
+            clan = next((c for c in war_clans if c and clean_tag(c.get("tag")) == clan_tag), None)
             if not clan:
                 continue
             own_war_found = True
@@ -390,3 +394,4 @@ async def run_periodically():
     while True:
         await sync_once()
         await asyncio.sleep(interval)
+
