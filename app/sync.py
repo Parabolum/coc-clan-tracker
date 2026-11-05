@@ -199,10 +199,13 @@ async def sync_cwl():
                 )
                 if not absent:
                     for miss_index in range(missed):
-                        war_entries.append((tag, f"Angriff vergessen {miss_index + 1}", SCORING_RULES["cwl"]["missed_attack"]))
+                        war_entries.append((tag, "Angriff vergessen", SCORING_RULES["cwl"]["missed_attack"]))
                 total = season_totals.setdefault(tag, {"name": member.get("name", tag), "stars": 0})
                 total["stars"] += stars
             if own_war_completed:
+                with database.connect() as db:
+                    db.execute("""UPDATE OR IGNORE point_entries SET description='Angriff vergessen'
+                        WHERE event_key=? AND category='CWL' AND description='Angriff vergessen 1'""", (event_key,))
                 database.replace_event_points(event_key, "CWL", war_entries)
         if own_war_found and own_war_completed:
             completed_rounds += 1
