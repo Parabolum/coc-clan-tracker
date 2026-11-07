@@ -124,7 +124,7 @@ def member_table():
         "Überfall-Wochenende": "Überfall-WE",
         "Spenden": "Spende",
         "Clan-Spiele": "Clan-Spiele",
-        "Inaktivität": "Inaktiv",
+        "Inaktivität": "Bonus",
         "Bonus": "Bonus",
     }
     with database.connect() as db:

@@ -61,14 +61,14 @@
         <div class="card-heading"><div><p class="overline">CLAN-RANGLISTE</p><h2>Aktive Mitglieder</h2></div><span class="count-label" id="member-label">0 Mitglieder</span></div>
         <label class="search-box"><span>⌕</span><input id="member-search" type="search" placeholder="Mitglied suchen …" autocomplete="off"></label>
         <div class="member-table-wrap"><table class="member-table">
-          <thead><tr><th>MITGLIED</th><th>GESAMT</th><th>CK</th><th>CWL</th><th>ÜBERFALL-WE</th><th>SPENDE</th><th>CLANSPIELE</th><th>INAKTIV</th><th>BONUS</th><th>KICKGEFAHR</th></tr></thead>
+          <thead><tr><th>MITGLIED</th><th>GESAMT</th><th>CK</th><th>CWL</th><th>ÜBERFALL-WE</th><th>SPENDE</th><th>CLANSPIELE</th><th>BONUS</th><th>KICKGEFAHR</th></tr></thead>
           <tbody id="member-directory"></tbody>
         </table></div>
       </article>
       <article class="card directory-card former-members-card">
         <div class="card-heading"><div><p class="overline">CLAN-ARCHIV</p><h2>Ehemalige Mitglieder</h2></div><span class="count-label" id="former-member-label">0 Mitglieder</span></div>
         <div class="member-table-wrap"><table class="member-table">
-          <thead><tr><th>MITGLIED</th><th>GESAMT</th><th>CK</th><th>CWL</th><th>ÜBERFALL-WE</th><th>SPENDE</th><th>CLANSPIELE</th><th>INAKTIV</th><th>BONUS</th><th>KICKGEFAHR</th></tr></thead>
+          <thead><tr><th>MITGLIED</th><th>GESAMT</th><th>CK</th><th>CWL</th><th>ÜBERFALL-WE</th><th>SPENDE</th><th>CLANSPIELE</th><th>BONUS</th><th>KICKGEFAHR</th></tr></thead>
           <tbody id="former-member-directory"></tbody>
         </table></div>
       </article>
@@ -83,8 +83,7 @@
           <section class="rule-group"><h3>Überfall-Wochenende</h3><div class="rule-row"><span>Alle möglichen Angriffe</span><strong>+1</strong></div><div class="rule-row"><span>Ein Teil der möglichen Angriffe</span><strong>0</strong></div><div class="rule-row"><span>Keine Angriffe</span><strong class="negative">−1</strong></div></section>
           <section class="rule-group"><h3>Spenden</h3><div class="rule-row"><span>Je 1.000 gespendete Einheiten</span><strong>+1</strong></div></section>
           <section class="rule-group"><h3>Clanspiele</h3><div class="rule-row"><span>10.000 Punkte</span><strong>+3</strong></div><div class="rule-row"><span>4.000–9.999 Punkte</span><strong>+1</strong></div><div class="rule-row"><span>1–3.999 Punkte</span><strong>0</strong></div><div class="rule-row"><span>0 Punkte</span><strong class="negative">−3</strong></div></section>
-          <section class="rule-group"><h3>Inaktivität</h3><div class="rule-row"><span>Ab 7 Tagen ohne Aktion</span><strong class="negative">−1 / Tag</strong></div><p class="rule-note">Vollautomatisch über Clan-Aktivitäten, XP und Spielfortschritt ermittelt. Abgemeldete Mitglieder sind geschützt.</p></section>
-          <section class="rule-group"><h3>Bonus und Abmeldung</h3><div class="rule-row"><span>Startguthaben beim ersten Beitritt</span><strong>+10</strong></div><div class="rule-row"><span>Manuelle Korrekturen</span><strong>durch Admins</strong></div><p class="rule-note">Nach einem Wiedereintritt werden frühere Punkte fortgeführt. Abmeldungen verhindern automatische Minuspunkte, wenn der eingetragene Zeitraum die Aktivität überschneidet; positive Punkte werden weiterhin gewertet.</p></section>
+          <section class="rule-group"><h3>Bonus und Abmeldung</h3><div class="rule-row"><span>Startguthaben beim ersten Beitritt</span><strong>+10</strong></div><div class="rule-row"><span>Ab 7 Tagen Inaktivität</span><strong class="negative">−1 / Tag</strong></div><div class="rule-row"><span>Manuelle Korrekturen</span><strong>durch Admins</strong></div><p class="rule-note">Nach einem Wiedereintritt werden frühere Punkte fortgeführt. Abmeldungen verhindern automatische Minuspunkte, wenn der eingetragene Zeitraum die Aktivität überschneidet; positive Punkte werden weiterhin gewertet.</p></section>
         </div>
         <p class="rules-footnote">Die Punkte aller Buchungen werden zum persönlichen Gesamtstand addiert. Bei 0 oder weniger Punkten besteht Kickgefahr.</p>
       </article>
@@ -92,14 +91,14 @@
 
     <section class="view" id="history" data-page="history" aria-label="Punkteverlauf">
       <article class="card history-card">
-        <div class="card-heading"><div><p class="overline">PUNKTE-CHRONIK</p><h2 id="history-title">Alle Buchungen</h2></div><div class="history-filters"><label class="select-wrap"><span class="sr-only">Mitglied filtern</span><select id="member-filter"><option value="">Alle Mitglieder</option></select></label><label class="select-wrap"><span class="sr-only">Kategorie filtern</span><select id="category-filter"><option value="">Alle Kategorien</option><option>CK</option><option>CWL</option><option>Überfall-WE</option><option>Spende</option><option>Clan-Spiele</option><option>Inaktiv</option><option>Bonus</option></select></label></div></div>
+        <div class="card-heading"><div><p class="overline">PUNKTE-CHRONIK</p><h2 id="history-title">Alle Buchungen</h2></div><div class="history-filters"><label class="select-wrap"><span class="sr-only">Mitglied filtern</span><select id="member-filter"><option value="">Alle Mitglieder</option></select></label><label class="select-wrap"><span class="sr-only">Kategorie filtern</span><select id="category-filter"><option value="">Alle Kategorien</option><option>CK</option><option>CWL</option><option>Überfall-WE</option><option>Spende</option><option>Clan-Spiele</option><option>Inaktivität</option><option>Bonus</option></select></label></div></div>
         <p class="history-note" id="history-count">Lade Punkteverlauf …</p>
         <div id="history-list" class="history-list"></div>
       </article>
     </section>
     <footer><span id="clan-footer-name">CLAN TRACKER</span><span id="support-contact-footer" class="support-contact-footer" hidden></span></footer>
   </main>
-  <script src="app.js?v=22"></script>
+  <script src="app.js?v=24"></script>
 </body>
 </html>
 

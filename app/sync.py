@@ -199,6 +199,8 @@ async def sync_cwl():
             if state not in {"warended", "ended"}:
                 continue
             own_war_completed = True
+            war_start = parse_api_time(war.get("startTime"))
+            war_end = parse_api_time(war.get("endTime")) or war_start
             for member in clan.get("members", []):
                 tag = member.get("tag")
                 if not tag:
@@ -210,8 +212,6 @@ async def sync_cwl():
                 stars = sum(int(a.get("stars", 0) or 0) for a in attacks)
                 expected = int(war.get("attacksPerMember", SCORING_RULES["cwl"]["expected_attacks_per_round"]) or 1)
                 missed = max(0, expected - len(attacks))
-                war_start = parse_api_time(war.get("startTime"))
-                war_end = parse_api_time(war.get("endTime")) or war_start
                 absent = database.member_absent_during(
                     tag,
                     war_start.date().isoformat() if war_start else None,
@@ -453,39 +453,48 @@ async def sync_inactivity():
     penalties_issued = 0
     for m in members:
         tag = m["player_tag"]
-        if database.member_absent_during(tag, today_iso, today_iso):
-            continue
-
-        last_active = parse_api_time(m["last_active_at"] or m["joined_clan_at"])
-        if not last_active:
-            continue
-
+        last_active = parse_api_time(m["last_active_at"] or m["joined_clan_at"]) or now
         days_inactive = (now - last_active).days
-        if days_inactive >= threshold_days:
-            active_confirmed = False
+
+        # Regelmäßiger Snapshot-Abgleich (alle 12h oder wenn noch kein Snapshot vorliegt)
+        last_check_str = database.get_state(f"profile_snapshot_at:{tag}")
+        last_check_time = parse_api_time(last_check_str)
+        should_check_profile = (
+            last_check_time is None
+            or (now - last_check_time) >= timedelta(hours=12)
+            or m["activity_snapshot"] is None
+            or (days_inactive >= threshold_days and (now - last_check_time) >= timedelta(hours=1))
+        )
+
+        if should_check_profile:
             try:
                 profile = await coc_api.get_player(tag)
                 new_snap = extract_player_snapshot(profile)
                 old_snap_raw = m["activity_snapshot"]
+                progress_detected = False
                 if old_snap_raw:
                     try:
                         old_snap = json.loads(old_snap_raw)
-                        if has_snapshot_progress(old_snap, new_snap):
-                            active_confirmed = True
+                        progress_detected = has_snapshot_progress(old_snap, new_snap)
                     except Exception:
                         pass
                 else:
-                    active_confirmed = True
+                    progress_detected = True
 
-                database.update_member_activity_snapshot(
-                    tag,
-                    json.dumps(new_snap),
-                    now.isoformat() if active_confirmed else None,
-                )
+                if progress_detected:
+                    last_active = now
+                    days_inactive = 0
+                    database.update_member_activity_snapshot(tag, json.dumps(new_snap), now.isoformat())
+                else:
+                    database.update_member_activity_snapshot(tag, json.dumps(new_snap))
+
+                database.set_state(f"profile_snapshot_at:{tag}", now.isoformat())
             except Exception as exc:
                 log.warning("Konnte Spielerprofil für Inaktivitäts-Check nicht abrufen (%s): %s", tag, exc)
 
-            if active_confirmed:
+        # Inaktivitätsstrafe prüfen
+        if days_inactive >= threshold_days:
+            if database.member_absent_during(tag, today_iso, today_iso):
                 continue
 
             event_key = f"inactivity:{today_iso}:{tag}"

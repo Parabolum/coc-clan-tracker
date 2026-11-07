@@ -64,10 +64,20 @@ function renderMemberStatusList() {
   const members = adminMembers.filter((member) => Number(member.is_current_clan) === 1).sort((a, b) => a.name.localeCompare(b.name, 'de'));
   $('member-status-list').innerHTML = members.map((member) => {
     const currentlyAbsent = member.weekly_activity === 'abgemeldet' && (!member.absence_end || member.absence_end >= todayIso);
-    const status = currentlyAbsent
-      ? `Abgemeldet bis ${member.absence_end ? formatIsoDate(member.absence_end) : 'unbegrenzt'}`
-      : 'Aktiv';
-    return `<div class="member-status-row"><span>${escapeHtml(member.name)}</span><span class="member-status-badge ${currentlyAbsent ? 'absent' : 'active'}">${escapeHtml(status)}</span></div>`;
+    let statusClass = 'active';
+    let status = 'Aktiv';
+    if (currentlyAbsent) {
+      statusClass = 'absent';
+      status = `Abgemeldet bis ${member.absence_end ? formatIsoDate(member.absence_end) : 'unbegrenzt'}`;
+    } else if (member.last_active_at) {
+      const lastActive = new Date(member.last_active_at.endsWith('Z') ? member.last_active_at : `${member.last_active_at}Z`);
+      const daysInactive = Math.floor((today.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysInactive >= 7) {
+        statusClass = 'inactive';
+        status = `Inaktiv (${daysInactive} Tage)`;
+      }
+    }
+    return `<div class="member-status-row"><span>${escapeHtml(member.name)}</span><span class="member-status-badge ${statusClass}">${escapeHtml(status)}</span></div>`;
   }).join('') || '<p class="empty-state">Keine aktiven Mitglieder vorhanden.</p>';
 }
 

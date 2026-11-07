@@ -58,7 +58,7 @@ function directoryMemberRow(member, former = false) {
   const points = Number(member.points || 0);
   const atRisk = points <= 0;
   const categories = member.categories || {};
-  const columns = ['CK', 'CWL', 'Überfall-WE', 'Spende', 'Clan-Spiele', 'Inaktiv', 'Bonus'];
+  const columns = ['CK', 'CWL', 'Überfall-WE', 'Spende', 'Clan-Spiele', 'Bonus'];
   const scoreCells = columns.map((category) => {
     const value = Number(categories[category] || 0);
     return `<td class="category-score ${value > 0 ? 'positive' : value < 0 ? 'negative' : ''}">${value > 0 ? '+' : ''}${value}</td>`;
@@ -81,8 +81,8 @@ function renderMembers() {
   const query = $('member-search').value.trim().toLocaleLowerCase('de-DE');
   const filtered = current.filter((member) => `${member.name} ${member.role || ''}`.toLocaleLowerCase('de-DE').includes(query));
   const filteredFormer = former.filter((member) => `${member.name}`.toLocaleLowerCase('de-DE').includes(query));
-  $('member-directory').innerHTML = filtered.map((member) => directoryMemberRow(member)).join('') || '<tr><td class="table-empty" colspan="10">Keine passenden Mitglieder gefunden.</td></tr>';
-  $('former-member-directory').innerHTML = filteredFormer.map((member) => directoryMemberRow(member, true)).join('') || '<tr><td class="table-empty" colspan="10">Keine ehemaligen Mitglieder.</td></tr>';
+  $('member-directory').innerHTML = filtered.map((member) => directoryMemberRow(member)).join('') || '<tr><td class="table-empty" colspan="9">Keine passenden Mitglieder gefunden.</td></tr>';
+  $('former-member-directory').innerHTML = filteredFormer.map((member) => directoryMemberRow(member, true)).join('') || '<tr><td class="table-empty" colspan="9">Keine ehemaligen Mitglieder.</td></tr>';
 }
 
 function formatDate(value) {
