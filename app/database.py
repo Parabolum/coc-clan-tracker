@@ -61,7 +61,16 @@ def initialize():
             );
         """)
         columns = {row["name"] for row in db.execute("PRAGMA table_info(members)")}
-        for name, sql_type in (("joined_clan_at", "TEXT"), ("weekly_activity", "TEXT DEFAULT 'inaktiv'"), ("absence_start", "TEXT"), ("absence_end", "TEXT"), ("admin_comment", "TEXT DEFAULT ''"), ("is_current_clan", "INTEGER NOT NULL DEFAULT 1")):
+        for name, sql_type in (
+            ("joined_clan_at", "TEXT"),
+            ("weekly_activity", "TEXT DEFAULT 'inaktiv'"),
+            ("absence_start", "TEXT"),
+            ("absence_end", "TEXT"),
+            ("admin_comment", "TEXT DEFAULT ''"),
+            ("is_current_clan", "INTEGER NOT NULL DEFAULT 1"),
+            ("last_active_at", "TEXT"),
+            ("activity_snapshot", "TEXT"),
+        ):
             if name not in columns:
                 db.execute(f"ALTER TABLE members ADD COLUMN {name} {sql_type}")
 
@@ -91,18 +100,45 @@ def dashboard_data():
 
 def upsert_member(tag, name, role=None, town_hall_level=None, is_current_clan=False):
     with connect() as db:
-        previous = db.execute("SELECT is_current_clan FROM members WHERE player_tag=?", (tag,)).fetchone()
+        previous = db.execute("SELECT is_current_clan, last_active_at FROM members WHERE player_tag=?", (tag,)).fetchone()
         joined_at = datetime.now(timezone.utc).isoformat() if is_current_clan and (previous is None or not previous["is_current_clan"]) else None
-        db.execute("""INSERT INTO members(player_tag,name,role,town_hall_level,last_seen,is_current_clan,joined_clan_at)
-            VALUES(?,?,?,?,CURRENT_TIMESTAMP,?,?) ON CONFLICT(player_tag) DO UPDATE SET
+        now_iso = datetime.now(timezone.utc).isoformat()
+        initial_active = joined_at or (now_iso if previous is None else None)
+        db.execute("""INSERT INTO members(player_tag,name,role,town_hall_level,last_seen,is_current_clan,joined_clan_at,last_active_at)
+            VALUES(?,?,?,?,CURRENT_TIMESTAMP,?,?,?) ON CONFLICT(player_tag) DO UPDATE SET
             name=excluded.name, role=COALESCE(excluded.role,members.role),
             town_hall_level=COALESCE(excluded.town_hall_level,members.town_hall_level),
             is_current_clan=CASE WHEN excluded.is_current_clan=1 THEN 1 ELSE members.is_current_clan END,
             joined_clan_at=COALESCE(excluded.joined_clan_at,members.joined_clan_at),
-            last_seen=CURRENT_TIMESTAMP""", (tag, name, role, town_hall_level, int(is_current_clan), joined_at))
+            last_seen=CURRENT_TIMESTAMP,
+            last_active_at=COALESCE(members.last_active_at, excluded.last_active_at)""",
+            (tag, name, role, town_hall_level, int(is_current_clan), joined_at, initial_active))
         if joined_at is not None and (previous is None):
             db.execute("""INSERT OR IGNORE INTO point_entries(player_tag,event_key,category,description,points)
                 VALUES(?,?,?,?,?)""", (tag, "tracker:starting-points", "Bonus", "Startguthaben", 10))
+
+
+def mark_member_active(tag, when=None):
+    when_iso = (when or datetime.now(timezone.utc)).isoformat()
+    with connect() as db:
+        db.execute("""UPDATE members SET last_active_at=?
+            WHERE player_tag=? AND (last_active_at IS NULL OR last_active_at < ?)""", (when_iso, tag, when_iso))
+
+
+def get_member_activity_data(tag):
+    with connect() as db:
+        row = db.execute("SELECT last_active_at, activity_snapshot FROM members WHERE player_tag=?", (tag,)).fetchone()
+        return dict(row) if row else None
+
+
+def update_member_activity_snapshot(tag, snapshot_json, last_active_iso=None):
+    with connect() as db:
+        if last_active_iso:
+            db.execute("""UPDATE members SET activity_snapshot=?, last_active_at=?
+                WHERE player_tag=?""", (snapshot_json, last_active_iso, tag))
+        else:
+            db.execute("""UPDATE members SET activity_snapshot=?
+                WHERE player_tag=?""", (snapshot_json, tag))
 
 
 def set_current_clan_members(tags):

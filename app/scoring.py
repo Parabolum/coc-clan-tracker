@@ -17,6 +17,7 @@ SCORING_RULES = {
     "donations": {"per_1000_donated": 1},
     "clan_games": {"at_least_10000": 3, "4000_to_9999": 1, "1_to_3999": 0, "zero": -3},
     "raid_weekend": {"no_attacks": -1, "all_attacks": 1, "partial_attacks": 0},
+    "inactivity": {"threshold_days": 7, "penalty_per_day": -1},
 }
 
 

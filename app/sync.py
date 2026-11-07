@@ -1,5 +1,6 @@
 """Periodic, idempotent imports from the official Clash of Clans API."""
 import asyncio
+import json
 import logging
 import os
 from datetime import datetime, timedelta, timezone
@@ -82,6 +83,8 @@ def book_war(event_key, members, category="Krieg", attacks_per_member=2, start_t
         database.upsert_member(tag, member.get("name", tag), town_hall_level=member.get("townhallLevel"))
         attacks = member.get("attacks") or []
         used = len(attacks)
+        if used > 0:
+            database.mark_member_active(tag, end_at or start_at)
         usage = points_for_war(used)
         if usage < 0 and database.member_absent_during(tag, period_start, period_end):
             continue
@@ -98,10 +101,25 @@ async def sync_members():
             continue
         database.upsert_member(tag, member.get("name", tag), member.get("role"), member.get("townHallLevel"), is_current_clan=True)
         donated = int(member.get("donations", 0) or 0)
+        received = int(member.get("donationsReceived", 0) or 0)
+        trophies = int(member.get("trophies", 0) or 0)
+        exp_level = int(member.get("expLevel", 0) or 0)
         month_key = datetime.now(timezone.utc).strftime('%Y-%m')
         state_key = f"donations:{month_key}:{tag}"
         previous = int(database.get_state(state_key) or donated)
         delta = max(0, donated - previous)
+
+        prev_received = int(database.get_state(f"don_recv:{month_key}:{tag}") or received)
+        prev_trophies = int(database.get_state(f"trophies:{tag}") or trophies)
+        prev_exp = int(database.get_state(f"exp:{tag}") or exp_level)
+
+        if delta > 0 or received > prev_received or trophies != prev_trophies or exp_level > prev_exp:
+            database.mark_member_active(tag)
+
+        database.set_state(f"don_recv:{month_key}:{tag}", received)
+        database.set_state(f"trophies:{tag}", trophies)
+        database.set_state(f"exp:{tag}", exp_level)
+
         remainder_key = f"donation_remainder:{month_key}:{tag}"
         remainder = int(database.get_state(remainder_key) or 0)
         per_thousand = SCORING_RULES["donations"]["per_1000_donated"]
@@ -187,6 +205,8 @@ async def sync_cwl():
                     continue
                 database.upsert_member(tag, member.get("name", tag), town_hall_level=member.get("townhallLevel"))
                 attacks = member.get("attacks") or []
+                if len(attacks) > 0:
+                    database.mark_member_active(tag, war_end or war_start)
                 stars = sum(int(a.get("stars", 0) or 0) for a in attacks)
                 expected = int(war.get("attacksPerMember", SCORING_RULES["cwl"]["expected_attacks_per_round"]) or 1)
                 missed = max(0, expected - len(attacks))
@@ -254,6 +274,8 @@ async def sync_raids():
             continue
         database.upsert_member(tag, member.get("name", tag))
         attacks = int(member.get("attacks", 0) or 0)
+        if attacks > 0:
+            database.mark_member_active(tag, raid_ended_at or raid_started_at)
         joined_at = parse_api_time(database.member_joined_at(tag))
         if attacks == 0 and joined_at and raid_started_at and joined_at > raid_started_at:
             # A new member may be present in the API season list with zero attacks.
@@ -343,6 +365,8 @@ async def sync_clan_games():
             log.warning("Clan-Spiele-Endstand für %s/%s nicht abrufbar: %s", completed_season, tag, exc)
             continue
         earned = max(0, score - int(baseline["score"]))
+        if earned > 0:
+            database.mark_member_active(tag)
         joined_during_season = bool(joined_at and completed_month_start <= joined_at < current_month_start)
         points = 0 if earned == 0 and joined_during_season else points_for_clan_games(earned)
         season_end = (current_month_start.date() - timedelta(days=1)).isoformat()
@@ -374,12 +398,117 @@ async def sync_clan_games():
     }
 
 
+def extract_player_snapshot(player: dict) -> dict:
+    metrics = {
+        "exp": int(player.get("expLevel", 0) or 0),
+        "attackWins": int(player.get("attackWins", 0) or 0),
+        "defenseWins": int(player.get("defenseWins", 0) or 0),
+        "trophies": int(player.get("trophies", 0) or 0),
+        "builderTrophies": int(player.get("builderBaseTrophies", 0) or 0),
+    }
+    tracked_achievements = {
+        "gold grab",
+        "elixir escapade",
+        "heroic heist",
+        "nice and tidy",
+        "most valuable clanmate",
+        "aggressive adventurer",
+        "games champion",
+        "war hero",
+        "cwl war hero",
+        "treasurer",
+    }
+    for ach in player.get("achievements", []):
+        name = (ach.get("name") or "").strip().lower()
+        if name in tracked_achievements:
+            metrics[name] = int(ach.get("value", 0) or 0)
+    return metrics
+
+
+def has_snapshot_progress(old_snap: dict, new_snap: dict) -> bool:
+    for key, new_val in new_snap.items():
+        old_val = old_snap.get(key)
+        if old_val is None:
+            continue
+        if new_val > old_val:
+            return True
+        if key in {"trophies", "builderTrophies"} and new_val != old_val:
+            return True
+    return False
+
+
+async def sync_inactivity():
+    now = datetime.now(timezone.utc)
+    today_iso = now.date().isoformat()
+    threshold_days = SCORING_RULES.get("inactivity", {}).get("threshold_days", 7)
+    penalty = SCORING_RULES.get("inactivity", {}).get("penalty_per_day", -1)
+
+    with database.connect() as db:
+        members = db.execute("""
+            SELECT player_tag, name, last_active_at, joined_clan_at, activity_snapshot
+            FROM members
+            WHERE is_current_clan = 1
+        """).fetchall()
+
+    penalties_issued = 0
+    for m in members:
+        tag = m["player_tag"]
+        if database.member_absent_during(tag, today_iso, today_iso):
+            continue
+
+        last_active = parse_api_time(m["last_active_at"] or m["joined_clan_at"])
+        if not last_active:
+            continue
+
+        days_inactive = (now - last_active).days
+        if days_inactive >= threshold_days:
+            active_confirmed = False
+            try:
+                profile = await coc_api.get_player(tag)
+                new_snap = extract_player_snapshot(profile)
+                old_snap_raw = m["activity_snapshot"]
+                if old_snap_raw:
+                    try:
+                        old_snap = json.loads(old_snap_raw)
+                        if has_snapshot_progress(old_snap, new_snap):
+                            active_confirmed = True
+                    except Exception:
+                        pass
+                else:
+                    active_confirmed = True
+
+                database.update_member_activity_snapshot(
+                    tag,
+                    json.dumps(new_snap),
+                    now.isoformat() if active_confirmed else None,
+                )
+            except Exception as exc:
+                log.warning("Konnte Spielerprofil für Inaktivitäts-Check nicht abrufen (%s): %s", tag, exc)
+
+            if active_confirmed:
+                continue
+
+            event_key = f"inactivity:{today_iso}:{tag}"
+            description = f"Inaktivität ({days_inactive} Tage inaktiv)"
+            if database.book_points(tag, event_key, "Inaktivität", description, penalty):
+                penalties_issued += 1
+
+    return {"penalties_issued": penalties_issued}
+
+
 async def sync_once():
     if not (os.getenv("CLAN_TAG") and os.getenv("COC_API_TOKEN")):
         return {"status": "demo", "message": "CLAN_TAG oder COC_API_TOKEN fehlt"}
     await sync_clan_name()
     result = {}
-    for name, fn in (("members", sync_members), ("war", sync_regular_war), ("cwl", sync_cwl), ("raids", sync_raids), ("clan_games", sync_clan_games)):
+    for name, fn in (
+        ("members", sync_members),
+        ("war", sync_regular_war),
+        ("cwl", sync_cwl),
+        ("raids", sync_raids),
+        ("clan_games", sync_clan_games),
+        ("inactivity", sync_inactivity),
+    ):
         if name == "clan_games" and isinstance(result.get("members"), dict):
             result[name] = {"skipped": "Mitglieder-Synchronisierung fehlgeschlagen; aktueller Clanstatus ist nicht bestätigt"}
             continue

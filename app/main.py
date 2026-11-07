@@ -124,6 +124,7 @@ def member_table():
         "Überfall-Wochenende": "Überfall-WE",
         "Spenden": "Spende",
         "Clan-Spiele": "Clan-Spiele",
+        "Inaktivität": "Inaktiv",
         "Bonus": "Bonus",
     }
     with database.connect() as db:
@@ -170,7 +171,7 @@ def admin_session(admin: str = Depends(require_admin)):
 @app.get("/api/admin/members")
 def admin_members(_admin: str = Depends(require_admin)):
     with database.connect() as db:
-        rows = db.execute("SELECT player_tag,name,role,town_hall_level,weekly_activity,absence_start,absence_end,admin_comment,is_current_clan FROM members ORDER BY is_current_clan DESC,name COLLATE NOCASE").fetchall()
+        rows = db.execute("SELECT player_tag,name,role,town_hall_level,weekly_activity,absence_start,absence_end,admin_comment,is_current_clan,last_active_at FROM members ORDER BY is_current_clan DESC,name COLLATE NOCASE").fetchall()
     return {"members": [dict(row) for row in rows]}
 
 
