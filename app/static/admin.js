@@ -66,18 +66,41 @@ function renderMemberStatusList() {
     const currentlyAbsent = member.weekly_activity === 'abgemeldet' && (!member.absence_end || member.absence_end >= todayIso);
     let statusClass = 'active';
     let status = 'Aktiv';
+    let daysInactive = 0;
+    let daysText = '0 Tage (heute)';
+    let daysClass = 'today';
+
+    if (member.last_active_at) {
+      const lastActive = new Date(member.last_active_at.endsWith('Z') ? member.last_active_at : `${member.last_active_at}Z`);
+      const lastActiveMidnight = new Date(lastActive.getFullYear(), lastActive.getMonth(), lastActive.getDate());
+      daysInactive = Math.max(0, Math.floor((today.getTime() - lastActiveMidnight.getTime()) / (1000 * 60 * 60 * 24)));
+      if (daysInactive === 0) {
+        daysText = '0 Tage (heute)';
+        daysClass = 'today';
+      } else if (daysInactive === 1) {
+        daysText = '1 Tag';
+        daysClass = 'normal';
+      } else if (daysInactive < 7) {
+        daysText = `${daysInactive} Tage`;
+        daysClass = daysInactive >= 4 ? 'warning' : 'normal';
+      } else {
+        daysText = `${daysInactive} Tage ⚠️`;
+        daysClass = 'danger';
+      }
+    } else {
+      daysText = 'Unbekannt';
+      daysClass = 'muted';
+    }
+
     if (currentlyAbsent) {
       statusClass = 'absent';
       status = `Abgemeldet bis ${member.absence_end ? formatIsoDate(member.absence_end) : 'unbegrenzt'}`;
-    } else if (member.last_active_at) {
-      const lastActive = new Date(member.last_active_at.endsWith('Z') ? member.last_active_at : `${member.last_active_at}Z`);
-      const daysInactive = Math.floor((today.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
-      if (daysInactive >= 7) {
-        statusClass = 'inactive';
-        status = `Inaktiv (${daysInactive} Tage)`;
-      }
+    } else if (daysInactive >= 7) {
+      statusClass = 'inactive';
+      status = 'Inaktiv';
     }
-    return `<div class="member-status-row"><span>${escapeHtml(member.name)}</span><span class="member-status-badge ${statusClass}">${escapeHtml(status)}</span></div>`;
+
+    return `<div class="member-status-row"><span>${escapeHtml(member.name)}</span><span class="member-status-badge ${statusClass}">${escapeHtml(status)}</span><span class="inactivity-tag ${daysClass}">${escapeHtml(daysText)}</span></div>`;
   }).join('') || '<p class="empty-state">Keine aktiven Mitglieder vorhanden.</p>';
 }
 
