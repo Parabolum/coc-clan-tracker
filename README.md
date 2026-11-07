@@ -63,12 +63,6 @@ Die offiziellen Raid-Saisonwerte enthalten Angriffe, persönliche Angriffsgrenze
 
 Die Punktregeln: CK 2 Angriffe +1, 1 Angriff 0, 0 Angriffe bei Teilnahme -2; CWL -4 je vergessenem Angriff und ein einmaliger Saisonbonus nach Gesamtsternen (14–17: +1, 18–20: +2, 21: +4); Spenden +1 je 1.000; Clan-Spiele 10.000+ Punkte +3, 4.000–9.999 +1, 1–3.999 0 und 0 Punkte -3 (außer bei Beitritt im gewerteten Monat: 0 Punkte).
 
-## Nächste Umsetzungsschritte
-
-1. Clan-Tag und API-Zugang in `.env` eintragen.
-2. Vorläufige Regeln in `app/scoring.py` mit der Clan-Tabelle abgleichen.
-3. Für öffentliches Hosting HTTPS und Zugriffsschutz für die Mitgliederansicht einrichten.
-
 ## API
 
 - `GET /api/health` – Status
