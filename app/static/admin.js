@@ -57,6 +57,21 @@ async function loadMembers() {
   renderMemberStatusList();
 }
 
+function parseMemberDate(str) {
+  if (!str) return null;
+  let clean = String(str).trim();
+  if (clean.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(clean)) {
+    const d = new Date(clean);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  clean = clean.replace(' ', 'T');
+  if (!clean.endsWith('Z') && !/[+-]\d{2}:?\d{2}$/.test(clean)) {
+    clean += 'Z';
+  }
+  const d = new Date(clean);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 function renderMemberStatusList() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -70,10 +85,11 @@ function renderMemberStatusList() {
     let daysText = '0 Tage (heute)';
     let daysClass = 'today';
 
-    if (member.last_active_at) {
-      const lastActive = new Date(member.last_active_at.endsWith('Z') ? member.last_active_at : `${member.last_active_at}Z`);
+    const lastActive = parseMemberDate(member.last_active_at || member.last_seen || member.joined_clan_at);
+    if (lastActive) {
       const lastActiveMidnight = new Date(lastActive.getFullYear(), lastActive.getMonth(), lastActive.getDate());
-      daysInactive = Math.max(0, Math.floor((today.getTime() - lastActiveMidnight.getTime()) / (1000 * 60 * 60 * 24)));
+      const diffDays = Math.floor((today.getTime() - lastActiveMidnight.getTime()) / (1000 * 60 * 60 * 24));
+      daysInactive = Number.isNaN(diffDays) ? 0 : Math.max(0, diffDays);
       if (daysInactive === 0) {
         daysText = '0 Tage (heute)';
         daysClass = 'today';
@@ -87,9 +103,6 @@ function renderMemberStatusList() {
         daysText = `${daysInactive} Tage ⚠️`;
         daysClass = 'danger';
       }
-    } else {
-      daysText = 'Unbekannt';
-      daysClass = 'muted';
     }
 
     if (currentlyAbsent) {
