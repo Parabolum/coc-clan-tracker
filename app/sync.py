@@ -120,14 +120,12 @@ async def sync_members():
         database.set_state(f"trophies:{tag}", trophies)
         database.set_state(f"exp:{tag}", exp_level)
 
-        remainder_key = f"donation_remainder:{month_key}:{tag}"
-        remainder = int(database.get_state(remainder_key) or 0)
         per_thousand = SCORING_RULES["donations"]["per_1000_donated"]
-        total_for_points = remainder + delta * per_thousand
-        points = total_for_points // 1000
-        database.set_state(remainder_key, total_for_points % 1000)
-        if points:
-            database.book_points(tag, f"donations:{month_key}:{tag}:{donated // 1000}", "Spenden", f"Spendenstand {donated}", points)
+        milestones = donated // 1000
+        for milestone in range(1, milestones + 1):
+            event_key = f"donations:{month_key}:{tag}:{milestone}"
+            if not database.has_point_entry(tag, event_key):
+                database.book_points(tag, event_key, "Spenden", f"Spendenstand {donated}", per_thousand)
         database.set_state(state_key, donated)
     database.set_current_clan_members([member.get("tag") for member in members if member.get("tag")])
     return len(members)

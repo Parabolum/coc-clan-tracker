@@ -255,6 +255,12 @@ def book_points(player_tag, event_key, category, description, points):
         return result.rowcount > 0
 
 
+def has_point_entry(player_tag, event_key):
+    with connect() as db:
+        row = db.execute("SELECT 1 FROM point_entries WHERE player_tag=? AND event_key=?", (player_tag, event_key)).fetchone()
+        return bool(row)
+
+
 def replace_points(player_tag, event_key, category, description, points):
     with connect() as db:
         member = db.execute("SELECT is_current_clan FROM members WHERE player_tag=?", (player_tag,)).fetchone()
