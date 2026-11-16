@@ -437,7 +437,8 @@ def has_snapshot_progress(old_snap: dict, new_snap: dict) -> bool:
 
 async def sync_inactivity():
     now = datetime.now(timezone.utc)
-    today_iso = now.date().isoformat()
+    today = now.date()
+    today_iso = today.isoformat()
     threshold_days = SCORING_RULES.get("inactivity", {}).get("threshold_days", 7)
     penalty = SCORING_RULES.get("inactivity", {}).get("penalty_per_day", -1)
 
@@ -452,7 +453,7 @@ async def sync_inactivity():
     for m in members:
         tag = m["player_tag"]
         last_active = parse_api_time(m["last_active_at"] or m["joined_clan_at"]) or now
-        days_inactive = (now - last_active).days
+        days_inactive = max(0, (today - last_active.date()).days)
 
         # Regelmäßiger Snapshot-Abgleich (alle 12h oder wenn noch kein Snapshot vorliegt)
         last_check_str = database.get_state(f"profile_snapshot_at:{tag}")
@@ -496,6 +497,9 @@ async def sync_inactivity():
                 continue
 
             event_key = f"inactivity:{today_iso}:{tag}"
+            if database.has_point_entry(tag, event_key):
+                continue
+
             description = f"Inaktivität ({days_inactive} Tage inaktiv)"
             if database.book_points(tag, event_key, "Inaktivität", description, penalty):
                 penalties_issued += 1

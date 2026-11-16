@@ -74,6 +74,18 @@ def initialize():
             if name not in columns:
                 db.execute(f"ALTER TABLE members ADD COLUMN {name} {sql_type}")
 
+        # Bereinige doppelte Inaktivitätsabzüge desselben Tages
+        db.execute("""
+            DELETE FROM point_entries
+            WHERE event_key LIKE 'inactivity:%'
+              AND id NOT IN (
+                  SELECT MAX(id)
+                  FROM point_entries
+                  WHERE event_key LIKE 'inactivity:%'
+                  GROUP BY player_tag, event_key
+              )
+        """)
+
 
 def remove_demo():
     with connect() as db:
