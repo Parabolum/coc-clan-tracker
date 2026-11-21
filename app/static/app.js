@@ -170,7 +170,7 @@ function showView(name, updateHash = true) {
   $('page-title').textContent = viewInfo[selected].title;
   $('page-subtitle').textContent = viewInfo[selected].subtitle;
   $('breadcrumb-title').textContent = viewInfo[selected].breadcrumb;
-  if (updateHash && location.hash !== `#${selected}`) history.replaceState(null, '', `#${selected}`);
+  if (updateHash && location.hash !== `#${selected}`) history.pushState(null, '', `#${selected}`);
 }
 
 async function loadDashboard() {
@@ -251,8 +251,10 @@ $('member-search').addEventListener('input', renderMembers);
 $('member-filter').addEventListener('change', loadSelectedMemberHistory);
 $('category-filter').addEventListener('change', renderHistory);
 $('refresh').addEventListener('click', loadDashboard);
-window.addEventListener('hashchange', () => showView(location.hash.slice(1), false));
+window.addEventListener('popstate', () => showView(location.hash.slice(1) || 'overview', false));
 $('today').textContent = new Date().toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'long' });
-showView(location.hash.slice(1) || 'overview', false);
+const initialView = location.hash.slice(1) || 'overview';
+if (!location.hash) history.replaceState(null, '', `#${initialView}`);
+showView(initialView, false);
 loadDashboard();
 
