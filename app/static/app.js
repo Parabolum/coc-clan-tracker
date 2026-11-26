@@ -67,7 +67,7 @@ function directoryMemberRow(member, former = false) {
     <td class="member-name-cell"><span class="member-name">${escapeHtml(member.name)}</span><small>${former ? 'Ehemalig' : escapeHtml(displayRole(member.role))}</small></td>
     <td class="total-score">${points.toLocaleString('de-DE')}</td>
     ${scoreCells}
-    <td><span class="kick-status ${atRisk ? 'at-risk' : 'safe'}" title="Keine Kickgefahr ab 1 Punkt">${atRisk ? '⚠ Kickgefahr' : '✓ Keine Gefahr'}</span></td>
+    <td>${former ? '<span class="kick-status inactive" title="Nicht mehr im Clan">Inaktiv</span>' : `<span class="kick-status ${atRisk ? 'at-risk' : 'safe'}" title="Keine Kickgefahr ab 1 Punkt">${atRisk ? '⚠ Kickgefahr' : '✓ Keine Gefahr'}</span>`}</td>
   </tr>`;
 }
 

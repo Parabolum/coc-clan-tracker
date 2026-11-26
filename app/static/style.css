@@ -120,6 +120,7 @@ button, input, select { font: inherit; }
 .kick-status { display: inline-flex; align-items: center; padding: 6px 9px; border: 1px solid transparent; border-radius: 7px; font-size: 10px; font-weight: 700; white-space: nowrap; }
 .kick-status.safe { border-color: #304432; background: #1d2b20; color: #b7e77b; }
 .kick-status.at-risk { border-color: #56352f; background: #34221f; color: #ff9b87; }
+.kick-status.inactive { border-color: #333d36; background: #1f2521; color: #8c978f; }
 .former-members-card { margin-top: 18px; }
 .table-empty { padding: 32px 14px !important; color: #89968b !important; }
 
