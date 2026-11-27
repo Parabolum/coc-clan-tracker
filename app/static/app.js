@@ -229,7 +229,8 @@ async function loadSupportContact() {
     const clanName = String(config.clan_name || '').trim();
     if (clanName) {
       $('clan-name').textContent = clanName;
-      $('clan-initial').textContent = [...clanName][0].toLocaleUpperCase('de-DE');
+      const clanInitial = $('clan-initial');
+      if (clanInitial) clanInitial.textContent = [...clanName][0].toLocaleUpperCase('de-DE');
       $('clan-overline').textContent = clanName.toLocaleUpperCase('de-DE');
       $('clan-footer-name').textContent = clanName.toLocaleUpperCase('de-DE');
       document.querySelector('.brand').setAttribute('aria-label', `${clanName} Übersicht`);

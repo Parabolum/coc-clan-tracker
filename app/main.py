@@ -60,6 +60,12 @@ class Adjustment(BaseModel):
     points: int = Field(ge=-1000, le=1000)
 
 
+class BulkAdjustment(BaseModel):
+    category: str = Field(min_length=1, max_length=40)
+    description: str = Field(min_length=1, max_length=200)
+    points: int = Field(ge=-1000, le=1000)
+
+
 class MemberAdminUpdate(BaseModel):
     player_tag: str = Field(min_length=3, max_length=20)
     absence_end: date | None = None
@@ -234,6 +240,23 @@ def add_adjustment(item: Adjustment, _admin: str = Depends(require_admin)):
                 raise HTTPException(409, "Diese Buchung existiert bereits")
             raise
     return {"saved": True}
+
+
+@app.post("/api/admin/adjustments/bulk")
+def add_bulk_adjustment(item: BulkAdjustment, _admin: str = Depends(require_admin)):
+    with database.connect() as db:
+        members = db.execute("SELECT player_tag FROM members WHERE is_current_clan=1").fetchall()
+        if not members:
+            raise HTTPException(409, "Keine aktuellen Clanmitglieder vorhanden.")
+        batch_rows = [
+            (member["player_tag"], f"manual:{uuid.uuid4().hex}", item.category, item.description, item.points)
+            for member in members
+        ]
+        db.executemany(
+            "INSERT INTO point_entries(player_tag,event_key,category,description,points) VALUES(?,?,?,?,?)",
+            batch_rows,
+        )
+    return {"saved": True, "count": len(batch_rows)}
 
 
 @app.post("/api/admin/sync")

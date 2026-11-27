@@ -21,7 +21,8 @@ button, input, select { font: inherit; }
 
 .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 3; display: flex; flex-direction: column; width: 258px; padding: 30px 20px 22px; border-right: 1px solid var(--border); background: var(--sidebar); }
 .brand { display: flex; align-items: center; gap: 13px; padding: 1px 9px 48px; color: inherit; text-decoration: none; }
-.brand-mark { display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid #35452e; border-radius: 14px; background: #202c20; color: var(--green); font-size: 22px; font-weight: 800; }
+.brand-mark { display: grid; width: 44px; height: 44px; flex-shrink: 0; overflow: hidden; place-items: center; border: 1px solid #35452e; border-radius: 14px; background: #202c20; color: var(--green); font-size: 22px; font-weight: 800; }
+.brand-logo { display: block; width: 100%; height: 100%; object-fit: cover; }
 .brand-copy strong { font-size: 16px; letter-spacing: -.35px; }
 .brand-copy small { display: block; margin-top: 5px; color: #79877d; font-size: 9px; font-weight: 700; letter-spacing: 1.6px; }
 .nav-caption, .overline { color: #829086; font-size: 10px; font-weight: 750; letter-spacing: 1.45px; }

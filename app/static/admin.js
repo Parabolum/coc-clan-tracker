@@ -45,9 +45,13 @@ async function loadMembers() {
   const result = await api('/api/admin/members');
   adminMembers = result.members || [];
   const currentMembers = adminMembers.filter((member) => Number(member.is_current_clan) === 1);
+  const bulkOption = currentMembers.length ? `<option value="__ALL__">Alle aktuellen Mitglieder (${currentMembers.length})</option>` : '';
   const options = currentMembers.map((member) => `<option value="${escapeHtml(member.player_tag)}">${escapeHtml(member.name)} · ${escapeHtml(member.player_tag)}</option>`).join('');
   document.querySelectorAll('.member-select').forEach((select) => {
-    select.innerHTML = options || '<option value="">Keine Mitglieder vorhanden</option>';
+    const previous = select.value;
+    select.innerHTML = options ? `${bulkOption}${options}` : '<option value="">Keine Mitglieder vorhanden</option>';
+    if (previous === '__ALL__' && currentMembers.length) select.value = '__ALL__';
+    else if (currentMembers.some((member) => member.player_tag === previous)) select.value = previous;
   });
   $('member-management-select').innerHTML = options || '<option value="">Keine Mitglieder vorhanden</option>';
   if (currentMembers.some((member) => member.player_tag === selectedManagementTag)) {
@@ -222,18 +226,38 @@ $('adjustment-form').addEventListener('submit', async (event) => {
   const formElement = event.currentTarget;
   const form = new FormData(formElement);
   const selectedTag = form.get('player_tag');
-  const payload = {
-    player_tag: form.get('player_tag'), event_key: `admin:${Date.now()}`,
-    category: form.get('category'), description: form.get('description'), points: Number(form.get('points'))
-  };
+  const isBulk = selectedTag === '__ALL__';
+  if (isBulk) {
+    const currentCount = adminMembers.filter((member) => Number(member.is_current_clan) === 1).length;
+    if (!window.confirm(`Diese Punktebuchung für alle ${currentCount} aktuellen Mitglieder speichern?`)) return;
+  }
   const button = event.currentTarget.querySelector('button[type="submit"]');
   button.disabled = true;
   try {
-    await api('/api/admin/adjustments', { method: 'POST', body: JSON.stringify(payload) });
-    showMessage($('adjustment-message'), 'Punktebuchung gespeichert.');
+    if (isBulk) {
+      const result = await api('/api/admin/adjustments/bulk', {
+        method: 'POST',
+        body: JSON.stringify({
+          category: form.get('category'),
+          description: form.get('description'),
+          points: Number(form.get('points'))
+        })
+      });
+      showMessage($('adjustment-message'), `Punktebuchung für ${result.count} Mitglieder gespeichert.`);
+    } else {
+      const payload = {
+        player_tag: selectedTag,
+        event_key: `admin:${Date.now()}`,
+        category: form.get('category'),
+        description: form.get('description'),
+        points: Number(form.get('points'))
+      };
+      await api('/api/admin/adjustments', { method: 'POST', body: JSON.stringify(payload) });
+      showMessage($('adjustment-message'), 'Punktebuchung gespeichert.');
+    }
     formElement.reset();
     formElement.elements.player_tag.value = selectedTag;
-    await loadManualHistory();
+    await Promise.all([loadManualHistory(), loadPointsHistory()]);
   } catch (error) {
     showMessage($('adjustment-message'), error.message, true);
   } finally {
